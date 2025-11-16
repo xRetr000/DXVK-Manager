@@ -2,6 +2,14 @@
 
 A comprehensive Windows application for automatically installing and managing DXVK files for your games. DXVK is a Vulkan-based translation layer for Direct3D 9, 10, and 11 that can improve performance and compatibility for many games.
 
+## 🚀 Quick Start
+
+**Just download `DXVK_Manager.exe` and double-click it!** No installation needed.
+
+**Want to build it yourself?** Just double-click `BUILD.bat` - no terminal needed!
+
+See `QUICK_START.md` for detailed instructions.
+
 ## Features
 
 🔧 **Core Features:**
@@ -26,7 +34,14 @@ A comprehensive Windows application for automatically installing and managing DX
 
 ## Installation
 
-### Option 1: Run from Source
+### For End Users (Download and Run)
+
+**Just download `DXVK_Manager.exe` and double-click it!**  
+No installation, no Python, no dependencies needed.
+
+### For Developers (Build from Source)
+
+#### Option 1: Run from Source
 
 1. Clone or download this repository
 2. Install Python dependencies:
@@ -38,9 +53,30 @@ A comprehensive Windows application for automatically installing and managing DX
    python dxvk_manager.py
    ```
 
-### Option 2: Standalone Executable (Coming Soon)
+### Option 2: Standalone Executable (No Terminal Required!)
 
-A standalone executable will be provided for users who don't want to install Python.
+**Super Easy Build - Just Double-Click!**
+
+1. **Double-click `BUILD.bat`** (Windows)
+   - That's it! It will automatically:
+     - Check Python installation
+     - Install dependencies
+     - Build the executable
+   - No terminal/command line knowledge needed!
+
+2. **Find your executable:**
+   - Location: `dist/DXVK_Manager.exe`
+   - Size: ~20-50 MB (includes everything needed)
+   - Standalone: No Python or dependencies required!
+
+3. **Distribute it:**
+   - Share the `.exe` file with anyone
+   - They can just double-click and run it
+   - Perfect for Windows Store distribution too!
+
+**For detailed instructions, see `README_BUILD.md`**
+
+**Want to create a professional installer?** See `INSTALLER_GUIDE.md`
 
 ## Usage
 
