@@ -28,7 +28,9 @@ def build_executable():
     # Note: --windowed hides console, but we keep console for debugging for now
     # Change --noconsole to --windowed if you want no console window
     cmd = [
-        "pyinstaller",
+        sys.executable,
+        "-m",
+        "PyInstaller",
         "--onefile",  # Create a single executable file
         "--noconsole",  # Hide console window (for GUI apps) - use --windowed for Mac
         "--name", "DXVK_Manager",
