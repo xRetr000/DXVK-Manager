@@ -1,0 +1,2 @@
+[console_scripts]
+dxvk-manager = dxvk_manager:main

@@ -1,0 +1,17 @@
+LICENSE
+README.md
+dxvk_manager.py
+exe_analyzer.py
+file_manager.py
+github_downloader.py
+gui.py
+logger.py
+platform_utils.py
+pyproject.toml
+setup.py
+dxvk_manager.egg-info/PKG-INFO
+dxvk_manager.egg-info/SOURCES.txt
+dxvk_manager.egg-info/dependency_links.txt
+dxvk_manager.egg-info/entry_points.txt
+dxvk_manager.egg-info/requires.txt
+dxvk_manager.egg-info/top_level.txt

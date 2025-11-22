@@ -31,8 +31,8 @@ Create `installer.iss`:
 AppName=DXVK Manager
 AppVersion=1.0.0
 AppPublisher=Your Name
-AppPublisherURL=https://github.com/yourusername/dxvk-manager
-AppSupportURL=https://github.com/yourusername/dxvk-manager
+AppPublisherURL=https://github.com/xRetr000/DXVK-Manager
+AppSupportURL=https://github.com/xRetr000/DXVK-Manager
 DefaultDirName={autopf}\DXVK Manager
 DefaultGroupName=DXVK Manager
 OutputDir=installer_output

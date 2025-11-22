@@ -121,24 +121,51 @@ class DetectionThread(QThread):
                 self.detected_signal.emit("Error", "Error")
                 return
             
-            # Find .exe files
+            # Find executable files (platform-specific)
+            from platform_utils import PlatformDetector
             exe_files = []
+            exe_ext = PlatformDetector.get_executable_extension()
+            
             for root, dirs, files in os.walk(self.folder):
                 depth = root[len(self.folder):].count(os.sep)
                 if depth > 1:
                     dirs[:] = []
                 
                 for f in files:
+                    # Windows: look for .exe, Linux/Mac: look for executables without extension
+                    if PlatformDetector.is_windows():
                     if f.lower().endswith('.exe'):
                         exe_files.append(os.path.join(root, f))
+                    else:
+                        # Linux/Mac: check if file is executable
+                        file_path = os.path.join(root, f)
+                        if os.path.isfile(file_path) and os.access(file_path, os.X_OK):
+                            # Skip common non-game executables
+                            if not f.startswith('.') and f not in ['wine', 'wine64', 'wine-preloader']:
+                                exe_files.append(file_path)
             
             if not exe_files:
-                exe_files = [os.path.join(self.folder, f) 
-                            for f in os.listdir(self.folder) 
-                            if f.lower().endswith('.exe')]
+                if PlatformDetector.is_windows():
+                    exe_files = [os.path.join(self.folder, f) 
+                                for f in os.listdir(self.folder) 
+                                if f.lower().endswith('.exe')]
+                else:
+                    # Linux/Mac: check for executables in root
+                    try:
+                        for f in os.listdir(self.folder):
+                            file_path = os.path.join(self.folder, f)
+                            if os.path.isfile(file_path) and os.access(file_path, os.X_OK):
+                                if not f.startswith('.'):
+                                    exe_files.append(file_path)
+                    except PermissionError:
+                        pass
             
             if not exe_files:
-                self.log_signal.emit("No .exe files found in the selected folder.")
+                from platform_utils import PlatformDetector
+                if PlatformDetector.is_windows():
+                    self.log_signal.emit("No .exe files found in the selected folder.")
+                else:
+                    self.log_signal.emit("No executable files found in the selected folder.")
                 self.detected_signal.emit("Not found", "Not found")
                 return
             
@@ -511,9 +538,20 @@ class DXVKManagerGUI:
     
     def browse_game_folder(self):
         """Open folder dialog to select game folder."""
+        from platform_utils import PlatformDetector
+        
+        # On Linux, offer to browse Wine prefixes
+        if PlatformDetector.is_linux():
+            # Check if we should show Wine prefix selector
+            wine_prefixes = PlatformDetector.find_wine_prefixes()
+            if wine_prefixes:
+                # For now, just use regular folder dialog
+                # Could add a dialog to select Wine prefix first
+                pass
+        
         folder = QFileDialog.getExistingDirectory(
             self.window, 
-            "Select Game Folder",
+            "Select Game Folder" + (" or Wine Prefix" if PlatformDetector.is_linux() else ""),
             "",
             QFileDialog.Option.ShowDirsOnly
         )
@@ -542,7 +580,7 @@ class DXVKManagerGUI:
         """Handle detection results."""
         self.architecture_label.setText(architecture)
         self.directx_label.setText(directx)
-    
+
     def install_dxvk(self):
         """Start DXVK installation."""
         folder = self.folder_input.text()
@@ -560,17 +598,17 @@ class DXVKManagerGUI:
             )
             if reply == QMessageBox.StandardButton.No:
                 return
-        
-        # Determine DirectX version
+            
+            # Determine DirectX version
         if self.directx_combo.currentText() != "Auto-detect":
             directx_version = self.directx_combo.currentText()
-        else:
+            else:
             directx_text = self.directx_label.text()
             if directx_text != "Not detected" and directx_text != "Analyzing...":
-                directx_version = directx_text.split(", ")[0]
-            else:
-                directx_version = "Unknown"
-        
+                    directx_version = directx_text.split(", ")[0]
+                else:
+                    directx_version = "Unknown"
+            
         backup_enabled = self.backup_checkbox.isChecked()
         
         # Disable buttons
@@ -594,12 +632,12 @@ class DXVKManagerGUI:
         """Handle installation completion."""
         self.install_btn.setEnabled(True)
         self.uninstall_btn.setEnabled(True)
-        
-        if success:
+            
+            if success:
             QMessageBox.information(self.window, "Success", message)
-        else:
+            else:
             QMessageBox.critical(self.window, "Error", message)
-    
+
     def uninstall_dxvk(self):
         """Uninstall DXVK."""
         folder = self.folder_input.text()
@@ -657,7 +695,7 @@ class DXVKManagerGUI:
                     QMessageBox.warning(
                         self.window,
                         "Warning",
-                        "Uninstallation failed or no backup found.\n\n"
+                                         "Uninstallation failed or no backup found.\n\n"
                         "The backup folder may not exist, or there may have been an error during restoration."
                     )
             except Exception as e:
@@ -672,14 +710,14 @@ class DXVKManagerGUI:
                     if line.strip():
                         self.log_message(f"  {line}")
                 QMessageBox.critical(self.window, "Error", f"Uninstallation error:\n{error_msg}")
-    
+
     def log_message(self, message):
         """Add a message to the log."""
         self.log_text.append(message)
         # Auto-scroll to bottom
         scrollbar = self.log_text.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
-    
+
     def run(self):
         """Start the GUI application."""
         self.window.show()

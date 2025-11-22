@@ -40,6 +40,7 @@ def build_executable():
         "--hidden-import", "PyQt6.QtCore",
         "--hidden-import", "PyQt6.QtGui",
         "--hidden-import", "PyQt6.QtWidgets",
+        "--hidden-import", "platform_utils",
         "--hidden-import", "zipfile",
         "--hidden-import", "io",
         "--hidden-import", "json",

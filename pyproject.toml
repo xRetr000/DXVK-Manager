@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dxvk-manager"
+version = "1.0.0"
+description = "A cross-platform tool for automatically installing and managing DXVK files for games"
+readme = "README.md"
+requires-python = ">=3.7"
+license = "MIT"
+authors = [
+    {name = "xRetr000", email = "xretrocs@gmail.com"}
+]
+keywords = ["dxvk", "gaming", "vulkan", "directx", "wine", "linux", "windows"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Topic :: Games/Entertainment",
+    "Topic :: System :: Hardware",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+]
+dependencies = [
+    "pefile>=2023.2.7",
+    "requests>=2.31.0",
+    "PyQt6>=6.6.0",
+]
+
+[project.optional-dependencies]
+linux = [
+    "pyelftools>=0.29",
+]
+
+[project.scripts]
+dxvk-manager = "dxvk_manager:main"
+
+[project.urls]
+Homepage = "https://github.com/xRetr000/DXVK-Manager"
+Documentation = "https://github.com/xRetr000/DXVK-Manager#readme"
+Repository = "https://github.com/xRetr000/DXVK-Manager"
+Issues = "https://github.com/xRetr000/DXVK-Manager/issues"
+

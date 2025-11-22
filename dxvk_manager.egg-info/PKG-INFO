@@ -1,3 +1,43 @@
+Metadata-Version: 2.4
+Name: dxvk-manager
+Version: 1.0.0
+Summary: A cross-platform tool for automatically installing and managing DXVK files for games
+Home-page: https://github.com/xRetr000/DXVK-Manager
+Author: xRetr000
+Author-email: Your Name <your.email@example.com>
+License: MIT
+Project-URL: Homepage, https://github.com/yourusername/DXVK-Manager
+Project-URL: Documentation, https://github.com/yourusername/DXVK-Manager#readme
+Project-URL: Repository, https://github.com/yourusername/DXVK-Manager
+Project-URL: Issues, https://github.com/yourusername/DXVK-Manager/issues
+Keywords: dxvk,gaming,vulkan,directx,wine,linux,windows
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Topic :: Games/Entertainment
+Classifier: Topic :: System :: Hardware
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pefile>=2023.2.7
+Requires-Dist: requests>=2.31.0
+Requires-Dist: PyQt6>=6.6.0
+Provides-Extra: linux
+Requires-Dist: pyelftools>=0.29; extra == "linux"
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+
 # DXVK Manager Tool
 
 A modern cross-platform application for automatically installing and managing DXVK files for your games. DXVK is a Vulkan-based translation layer for Direct3D 9, 10, and 11 that can improve performance and compatibility for many games.
@@ -87,15 +127,15 @@ pip install "dxvk-manager[linux]"
 
 **Install from GitHub:**
 ```bash
-pip install git+https://github.com/xRetr000/DXVK-Manager.git
+pip install git+https://github.com/yourusername/DXVK-Manager.git
 # Or with Linux support:
-pip install "git+https://github.com/xRetr000/DXVK-Manager.git#egg=dxvk-manager[linux]"
+pip install "git+https://github.com/yourusername/DXVK-Manager.git#egg=dxvk-manager[linux]"
 ```
 
 **Or install from local source:**
 ```bash
 # Clone the repository
-git clone https://github.com/xRetr000/DXVK-Manager.git
+git clone https://github.com/yourusername/DXVK-Manager.git
 cd DXVK-Manager
 
 # Install the package
@@ -187,10 +227,10 @@ dxvk-manager
 **Or install directly from GitHub:**
 ```bash
 # Install from GitHub
-pip3 install git+https://github.com/xRetr000/DXVK-Manager.git
+pip3 install git+https://github.com/yourusername/DXVK-Manager.git
 
 # Or with Linux-specific dependencies (ELF support)
-pip3 install "git+https://github.com/xRetr000/DXVK-Manager.git#egg=dxvk-manager[linux]"
+pip3 install "git+https://github.com/yourusername/DXVK-Manager.git#egg=dxvk-manager[linux]"
 
 # Run the application
 dxvk-manager
