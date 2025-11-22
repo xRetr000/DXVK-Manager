@@ -1,0 +1,19 @@
+# Force GitHub to recognize Python files correctly
+*.py linguist-detectable=true
+*.pyw linguist-detectable=true
+
+# Mark documentation as documentation (not code)
+*.md linguist-documentation=true
+*.txt linguist-documentation=true
+LICENSE linguist-documentation=true
+
+# Mark build artifacts as generated
+*.spec linguist-generated=true
+build/** linguist-generated=true
+dist/** linguist-generated=true
+__pycache__/** linguist-generated=true
+*.pyc linguist-generated=true
+
+# Mark batch files as documentation
+*.bat linguist-documentation=true
+
