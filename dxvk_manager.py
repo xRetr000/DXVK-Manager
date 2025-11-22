@@ -28,38 +28,52 @@ class DXVKManager:
             release_info = self.downloader.get_latest_release_info()
             version = release_info['tag_name']
             download_url = release_info.get('download_url') or release_info.get('zipball_url')
+            file_format = release_info.get('download_format', 'tar.gz')
             
             if not download_url:
-                raise ValueError("Could not find download URL in release information. The DXVK release may not have a ZIP file.")
+                raise ValueError("Could not find download URL in release information. The DXVK release may not have a downloadable asset.")
             
             print(f"Latest DXVK version: {version}")
             print(f"Download URL: {download_url}")
+            print(f"File format: {file_format}")
             
             # Step 2: Create temporary directory for extraction
             with tempfile.TemporaryDirectory() as temp_dir:
                 print(f"Extracting DXVK to temporary directory: {temp_dir}")
                 
                 # Step 3: Download and extract DXVK
-                self.downloader.download_and_extract_dxvk(download_url, temp_dir, architecture, directx_version)
+                self.downloader.download_and_extract_dxvk(download_url, temp_dir, architecture, directx_version, file_format)
                 
                 # Step 4: Determine which DLLs to install
+                # Note: DXVK doesn't include d3d10.dll (it uses d3d10core.dll for D3D10.1 support)
                 dll_map = {
                     'Direct3D 9': ['d3d9.dll', 'dxgi.dll'],
-                    'Direct3D 10': ['d3d10.dll', 'dxgi.dll'],
+                    'Direct3D 10': ['d3d10core.dll', 'dxgi.dll'],  # DXVK uses d3d10core.dll, not d3d10.dll
                     'Direct3D 11': ['d3d11.dll', 'dxgi.dll'],
-                    'Unknown': ['d3d9.dll', 'd3d10.dll', 'd3d11.dll', 'dxgi.dll']
+                    'Unknown': ['d3d9.dll', 'd3d11.dll', 'dxgi.dll']  # Don't include d3d10.dll as it doesn't exist in DXVK
                 }
                 
                 dlls_to_install = dll_map.get(directx_version, dll_map['Unknown'])
                 
-                # Verify DLLs were extracted
+                # Verify DLLs were extracted - only check for DLLs that actually exist
                 missing_dlls = []
+                extracted_dlls = []
                 for dll in dlls_to_install:
-                    if not os.path.exists(os.path.join(temp_dir, dll)):
+                    dll_path = os.path.join(temp_dir, dll)
+                    if os.path.exists(dll_path):
+                        extracted_dlls.append(dll)
+                    else:
                         missing_dlls.append(dll)
                 
+                # If we have at least some DLLs extracted, proceed (especially for Unknown case)
+                if not extracted_dlls:
+                    raise ValueError(f"Failed to extract any required DLLs. Missing: {', '.join(missing_dlls)}. The DXVK release may have a different structure.")
+                
+                # Warn about missing DLLs but don't fail if we have some
                 if missing_dlls:
-                    raise ValueError(f"Failed to extract required DLLs: {', '.join(missing_dlls)}. The DXVK release may have a different structure.")
+                    print(f"Warning: Some DLLs were not found: {', '.join(missing_dlls)}. Continuing with available DLLs: {', '.join(extracted_dlls)}")
+                    # Update dlls_to_install to only include what we actually have
+                    dlls_to_install = extracted_dlls
                 
                 # Step 5: Backup existing DLLs if requested
                 if backup_enabled:
