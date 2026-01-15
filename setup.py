@@ -38,7 +38,7 @@ def read_requirements():
 setup(
     name='dxvk-manager',
     version='1.0.0',
-    description='A cross-platform tool for automatically installing and managing DXVK files for games',
+    description='A Windows tool for automatically installing and managing DXVK files for games',
     long_description=read_readme(),
     long_description_content_type='text/markdown',
     author='xRetr000',
@@ -52,9 +52,6 @@ setup(
         'requests>=2.31.0',
         'PyQt6>=6.6.0',
     ],
-    extras_require={
-        'linux': ['pyelftools>=0.29'],
-    },
     python_requires='>=3.7',
     entry_points={
         'console_scripts': [
@@ -74,10 +71,10 @@ setup(
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Operating System :: Microsoft :: Windows',
-        'Operating System :: POSIX :: Linux',
-        'Operating System :: MacOS',
+        'Operating System :: Microsoft :: Windows :: Windows 10',
+        'Operating System :: Microsoft :: Windows :: Windows 11',
     ],
-    keywords='dxvk gaming vulkan directx wine linux windows',
+    keywords='dxvk gaming vulkan directx windows',
     project_urls={
         'Bug Reports': 'https://github.com/xRetr000/DXVK-Manager/issues',
         'Source': 'https://github.com/xRetr000/DXVK-Manager',

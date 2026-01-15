@@ -11,15 +11,24 @@ class DXVKManager:
         self.logger = Logger()
 
     def install_dxvk(self, game_folder, architecture, directx_version, backup_enabled):
-        """Main installation logic."""
+        """Main installation logic with Windows-specific error handling."""
         try:
-            # Validate inputs
+            # Validate inputs with user-friendly messages
             if not game_folder or not os.path.exists(game_folder):
-                raise ValueError(f"Game folder does not exist: {game_folder}")
+                raise ValueError(
+                    f"Game folder does not exist:\n{game_folder}\n\n"
+                    "Please select a valid game folder containing the game's .exe file."
+                )
             
             if architecture not in ["32-bit", "64-bit"]:
                 if architecture in ["Not detected", "Unknown", "Error"]:
-                    raise ValueError("Could not detect game architecture. Please ensure a valid .exe file exists in the game folder.")
+                    raise ValueError(
+                        "Could not detect game architecture.\n\n"
+                        "Please ensure:\n"
+                        "1. The folder contains a valid .exe file\n"
+                        "2. The .exe file is not corrupted\n"
+                        "3. You have read permissions for the folder"
+                    )
                 else:
                     raise ValueError(f"Invalid architecture: {architecture}")
             
@@ -31,7 +40,14 @@ class DXVKManager:
             file_format = release_info.get('download_format', 'tar.gz')
             
             if not download_url:
-                raise ValueError("Could not find download URL in release information. The DXVK release may not have a downloadable asset.")
+                raise ValueError(
+                    "Could not find DXVK download URL.\n\n"
+                    "Possible causes:\n"
+                    "- No internet connection\n"
+                    "- GitHub API is unavailable\n"
+                    "- DXVK release format changed\n\n"
+                    "Please check your internet connection and try again."
+                )
             
             print(f"Latest DXVK version: {version}")
             print(f"Download URL: {download_url}")
@@ -67,7 +83,15 @@ class DXVKManager:
                 
                 # If we have at least some DLLs extracted, proceed (especially for Unknown case)
                 if not extracted_dlls:
-                    raise ValueError(f"Failed to extract any required DLLs. Missing: {', '.join(missing_dlls)}. The DXVK release may have a different structure.")
+                    raise ValueError(
+                        f"Failed to extract required DLLs.\n\n"
+                        f"Missing DLLs: {', '.join(missing_dlls)}\n\n"
+                        "Possible causes:\n"
+                        "- DXVK release structure changed\n"
+                        "- Architecture mismatch\n"
+                        "- Download was corrupted\n\n"
+                        "Please try again or report this issue."
+                    )
                 
                 # Warn about missing DLLs but don't fail if we have some
                 if missing_dlls:
@@ -94,7 +118,17 @@ class DXVKManager:
                         print(f"Warning: {dll} was not installed successfully.")
                 
                 if not installed_dlls:
-                    raise ValueError("No DLLs were installed. Check permissions for the game folder.")
+                    raise ValueError(
+                        "No DLLs were installed.\n\n"
+                        "Possible causes:\n"
+                        "- Insufficient permissions (try running as administrator)\n"
+                        "- Game folder is read-only\n"
+                        "- Files are locked by another program\n"
+                        "- Antivirus is blocking the operation\n\n"
+                        "If the game is in Program Files, you may need to:\n"
+                        "1. Run DXVK Manager as administrator, OR\n"
+                        "2. Move the game to a folder outside Program Files"
+                    )
                 
                 # Step 7: Log the installation
                 self.logger.log_installation(game_folder, architecture, directx_version, version)
@@ -102,16 +136,38 @@ class DXVKManager:
                 print(f"DXVK installation completed successfully! Installed: {', '.join(installed_dlls)}")
                 return True
                 
-        except Exception as e:
+        except PermissionError as e:
+            # Permission errors already have user-friendly messages
             print(f"Installation failed: {str(e)}")
+            return False
+        except ValueError as e:
+            # Validation errors already have user-friendly messages
+            print(f"Installation failed: {str(e)}")
+            return False
+        except Exception as e:
+            error_msg = (
+                f"Installation failed with unexpected error:\n{str(e)}\n\n"
+                "Please check:\n"
+                "- Internet connection\n"
+                "- Game folder permissions\n"
+                "- Antivirus settings\n"
+                "- Windows Event Viewer for more details"
+            )
+            print(error_msg)
             import traceback
-            print(f"Error details: {traceback.format_exc()}")
+            print(f"\nTechnical details:\n{traceback.format_exc()}")
             return False
 
     def uninstall_dxvk(self, game_folder):
         """Uninstalls DXVK by restoring backups."""
         try:
+            if not game_folder or not os.path.exists(game_folder):
+                print("Error: Game folder does not exist.")
+                return False
             return self.file_manager.restore_dlls(game_folder)
+        except PermissionError as e:
+            print(f"Uninstallation failed: {str(e)}")
+            return False
         except Exception as e:
             print(f"Uninstallation failed: {str(e)}")
             return False

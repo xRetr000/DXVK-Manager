@@ -202,6 +202,9 @@
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\\Lib\\email\\utils.py',
    'PYMODULE'),
+  ('exe_analyzer',
+   'C:\\Users\\Yamin\\Documents\\CodingProject\\DXVK-Manager\\exe_analyzer.py',
+   'PYMODULE'),
   ('file_manager',
    'C:\\Users\\Yamin\\Documents\\CodingProject\\DXVK-Manager\\file_manager.py',
    'PYMODULE'),
@@ -231,6 +234,9 @@
    'PYMODULE'),
   ('github_downloader',
    'C:\\Users\\Yamin\\Documents\\CodingProject\\DXVK-Manager\\github_downloader.py',
+   'PYMODULE'),
+  ('gui',
+   'C:\\Users\\Yamin\\Documents\\CodingProject\\DXVK-Manager\\gui.py',
    'PYMODULE'),
   ('gzip',
    'C:\\Program '

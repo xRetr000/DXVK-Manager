@@ -345,7 +345,9 @@ imported by:
   <a target="code" href="///C:/Users/Yamin/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0/LocalCache/local-packages/Python311/site-packages/PyQt6/__init__.py" type="text/plain"><tt>PyQt6</tt></a>
 <span class="moduletype">Package</span>  <div class="import">
 imports:
-    <a href="#PyQt6.sip">PyQt6.sip</a>
+    <a href="#PyQt6.QtCore">PyQt6.QtCore</a>
+ &#8226;   <a href="#PyQt6.QtGui">PyQt6.QtGui</a>
+ &#8226;   <a href="#PyQt6.sip">PyQt6.sip</a>
  &#8226;   <a href="#os">os</a>
  &#8226;   <a href="#pkgutil">pkgutil</a>
  &#8226;   <a href="#sys">sys</a>
@@ -379,9 +381,11 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#PyQt6.QtGui">PyQt6.QtGui</a>
+    <a href="#PyQt6">PyQt6</a>
+ &#8226;   <a href="#PyQt6.QtGui">PyQt6.QtGui</a>
  &#8226;   <a href="#PyQt6.QtWidgets">PyQt6.QtWidgets</a>
  &#8226;   <a href="#dxvk_manager.py">dxvk_manager.py</a>
+ &#8226;   <a href="#gui">gui</a>
 
   </div>
 
@@ -404,8 +408,10 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#PyQt6.QtWidgets">PyQt6.QtWidgets</a>
+    <a href="#PyQt6">PyQt6</a>
+ &#8226;   <a href="#PyQt6.QtWidgets">PyQt6.QtWidgets</a>
  &#8226;   <a href="#dxvk_manager.py">dxvk_manager.py</a>
+ &#8226;   <a href="#gui">gui</a>
 
   </div>
 
@@ -430,6 +436,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#dxvk_manager.py">dxvk_manager.py</a>
+ &#8226;   <a href="#gui">gui</a>
 
   </div>
 
@@ -2213,6 +2220,7 @@ imported by:
     <a href="#_threading_local">_threading_local</a>
  &#8226;   <a href="#ast">ast</a>
  &#8226;   <a href="#getpass">getpass</a>
+ &#8226;   <a href="#gui">gui</a>
  &#8226;   <a href="#importlib.metadata">importlib.metadata</a>
  &#8226;   <a href="#importlib.resources._adapters">importlib.resources._adapters</a>
  &#8226;   <a href="#importlib.resources._common">importlib.resources._common</a>
@@ -5474,6 +5482,23 @@ imported by:
 </div>
 
 <div class="node">
+  <a name="exe_analyzer"></a>
+  <a target="code" href="///C:/Users/Yamin/Documents/CodingProject/DXVK-Manager/exe_analyzer.py" type="text/plain"><tt>exe_analyzer</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#os">os</a>
+ &#8226;   <a href="#pefile">pefile</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#gui">gui</a>
+
+  </div>
+
+</div>
+
+<div class="node">
   <a name="fcntl"></a>
   <a target="code" href="" type="text/plain"><tt>fcntl</tt></a>
 <span class="moduletype">MissingModule</span>  <div class="import">
@@ -5491,6 +5516,7 @@ imported by:
 imports:
     <a href="#os">os</a>
  &#8226;   <a href="#shutil">shutil</a>
+ &#8226;   <a href="#stat">stat</a>
 
   </div>
   <div class="import">
@@ -5765,7 +5791,20 @@ imported by:
 <div class="node">
   <a name="gui"></a>
   <a target="code" href="///C:/Users/Yamin/Documents/CodingProject/DXVK-Manager/gui.py" type="text/plain"><tt>gui</tt></a>
-<span class="moduletype">InvalidSourceModule</span>  <div class="import">
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#PyQt6.QtCore">PyQt6.QtCore</a>
+ &#8226;   <a href="#PyQt6.QtGui">PyQt6.QtGui</a>
+ &#8226;   <a href="#PyQt6.QtWidgets">PyQt6.QtWidgets</a>
+ &#8226;   <a href="#contextlib">contextlib</a>
+ &#8226;   <a href="#exe_analyzer">exe_analyzer</a>
+ &#8226;   <a href="#io">io</a>
+ &#8226;   <a href="#os">os</a>
+ &#8226;   <a href="#sys">sys</a>
+ &#8226;   <a href="#traceback">traceback</a>
+
+  </div>
+  <div class="import">
 imported by:
     <a href="#dxvk_manager.py">dxvk_manager.py</a>
 
@@ -6115,6 +6154,7 @@ imports:
  &#8226;   <a href="#importlib">importlib</a>
  &#8226;   <a href="#importlib._bootstrap">importlib._bootstrap</a>
  &#8226;   <a href="#importlib._bootstrap_external">importlib._bootstrap_external</a>
+ &#8226;   <a href="#importlib.machinery">importlib.machinery</a>
  &#8226;   <a href="#sys">sys</a>
  &#8226;   <a href="#warnings">warnings</a>
 
@@ -6250,7 +6290,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#importlib.abc">importlib.abc</a>
+    <a href="#importlib">importlib</a>
+ &#8226;   <a href="#importlib.abc">importlib.abc</a>
  &#8226;   <a href="#inspect">inspect</a>
  &#8226;   <a href="#pkgutil">pkgutil</a>
  &#8226;   <a href="#py_compile">py_compile</a>
@@ -6687,6 +6728,7 @@ imported by:
  &#8226;   <a href="#encodings.uu_codec">encodings.uu_codec</a>
  &#8226;   <a href="#getpass">getpass</a>
  &#8226;   <a href="#github_downloader">github_downloader</a>
+ &#8226;   <a href="#gui">gui</a>
  &#8226;   <a href="#gzip">gzip</a>
  &#8226;   <a href="#http.client">http.client</a>
  &#8226;   <a href="#http.cookiejar">http.cookiejar</a>
@@ -7337,6 +7379,7 @@ imported by:
  &#8226;   <a href="#contextlib">contextlib</a>
  &#8226;   <a href="#dxvk_manager.py">dxvk_manager.py</a>
  &#8226;   <a href="#email.utils">email.utils</a>
+ &#8226;   <a href="#exe_analyzer">exe_analyzer</a>
  &#8226;   <a href="#file_manager">file_manager</a>
  &#8226;   <a href="#fnmatch">fnmatch</a>
  &#8226;   <a href="#genericpath">genericpath</a>
@@ -7344,6 +7387,7 @@ imported by:
  &#8226;   <a href="#getpass">getpass</a>
  &#8226;   <a href="#gettext">gettext</a>
  &#8226;   <a href="#github_downloader">github_downloader</a>
+ &#8226;   <a href="#gui">gui</a>
  &#8226;   <a href="#gzip">gzip</a>
  &#8226;   <a href="#http.cookiejar">http.cookiejar</a>
  &#8226;   <a href="#importlib.metadata">importlib.metadata</a>
@@ -7474,6 +7518,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#dxvk_manager.py">dxvk_manager.py</a>
+ &#8226;   <a href="#exe_analyzer">exe_analyzer</a>
 
   </div>
 
@@ -8743,6 +8788,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#dxvk_manager.py">dxvk_manager.py</a>
+ &#8226;   <a href="#file_manager">file_manager</a>
  &#8226;   <a href="#genericpath">genericpath</a>
  &#8226;   <a href="#netrc">netrc</a>
  &#8226;   <a href="#ntpath">ntpath</a>
@@ -8922,6 +8968,7 @@ imported by:
  &#8226;   <a href="#getopt">getopt</a>
  &#8226;   <a href="#getpass">getpass</a>
  &#8226;   <a href="#gettext">gettext</a>
+ &#8226;   <a href="#gui">gui</a>
  &#8226;   <a href="#gzip">gzip</a>
  &#8226;   <a href="#http.client">http.client</a>
  &#8226;   <a href="#importlib">importlib</a>
@@ -9217,6 +9264,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#dxvk_manager.py">dxvk_manager.py</a>
+ &#8226;   <a href="#gui">gui</a>
  &#8226;   <a href="#http.cookiejar">http.cookiejar</a>
  &#8226;   <a href="#logging">logging</a>
  &#8226;   <a href="#py_compile">py_compile</a>
