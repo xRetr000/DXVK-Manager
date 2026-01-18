@@ -1,4 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_submodules
+
+hiddenimports = ['pefile', 'requests', 'PyQt6', 'PyQt6.QtCore', 'PyQt6.QtGui', 'PyQt6.QtWidgets', 'gui', 'exe_analyzer', 'file_manager', 'logger', 'github_downloader', 'zipfile', 'io', 'json', 'datetime', 'tempfile', 'shutil', 'ctypes', 'winreg', 'traceback']
+hiddenimports += collect_submodules('PyQt6')
 
 
 a = Analysis(
@@ -6,7 +10,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=['pefile', 'requests', 'PyQt6', 'PyQt6.QtCore', 'PyQt6.QtGui', 'PyQt6.QtWidgets', 'platform_utils', 'zipfile', 'io', 'json', 'datetime', 'tempfile', 'shutil'],
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

@@ -5,10 +5,10 @@ from contextlib import redirect_stdout, redirect_stderr
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QLineEdit, QTextEdit, QComboBox, QCheckBox,
-    QFileDialog, QMessageBox, QFrame, QScrollArea
+    QFileDialog, QMessageBox, QFrame, QScrollArea, QDialog
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
-from PyQt6.QtGui import QFont, QPalette, QColor
+from PyQt6.QtGui import QFont, QPalette, QColor, QIcon
 
 class InstallationThread(QThread):
     """Thread for running DXVK installation without blocking UI."""
@@ -192,6 +192,205 @@ class ModernCard(QFrame):
                 border: 1px solid #404040;
             }
         """)
+
+class DarkMessageBox(QDialog):
+    """Custom dark-themed message box to match the application's dark mode."""
+    def __init__(self, parent=None, title="", message="", icon_type="question"):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.MSWindowsFixedSizeDialogHint)
+        self.setModal(True)
+        self.result_button = None
+        
+        # Dark theme styling - Windows 11 dark mode
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #202020;
+                color: #FFFFFF;
+            }
+            QLabel {
+                color: #E0E0E0;
+                background-color: transparent;
+            }
+            QPushButton {
+                background-color: #0078D4;
+                color: white;
+                border: none;
+                padding: 8px 20px;
+                border-radius: 4px;
+                font-weight: 600;
+                min-width: 80px;
+            }
+            QPushButton:hover {
+                background-color: #106EBE;
+            }
+            QPushButton:pressed {
+                background-color: #005A9E;
+            }
+            QPushButton#secondary {
+                background-color: #5A5A5A;
+                color: white;
+            }
+            QPushButton#secondary:hover {
+                background-color: #6A6A6A;
+            }
+            QPushButton#secondary:pressed {
+                background-color: #4A4A4A;
+            }
+        """)
+        
+        # Layout
+        layout = QVBoxLayout(self)
+        layout.setSpacing(20)
+        layout.setContentsMargins(25, 25, 25, 25)
+        
+        # Icon and message layout
+        content_layout = QHBoxLayout()
+        content_layout.setSpacing(20)
+        
+        # Icon label with circular background
+        icon_label = QLabel()
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignTop)
+        if icon_type == "question":
+            icon_label.setText("?")
+            icon_label.setStyleSheet("""
+                QLabel {
+                    font-size: 36pt;
+                    color: #0078D4;
+                    font-weight: bold;
+                    min-width: 50px;
+                    max-width: 50px;
+                    min-height: 50px;
+                    max-height: 50px;
+                    background-color: #1A3A4D;
+                    border-radius: 25px;
+                    padding: 0px;
+                }
+            """)
+            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        elif icon_type == "warning":
+            icon_label.setText("!")
+            icon_label.setStyleSheet("""
+                QLabel {
+                    font-size: 36pt;
+                    color: #FFB900;
+                    font-weight: bold;
+                    min-width: 50px;
+                    max-width: 50px;
+                    min-height: 50px;
+                    max-height: 50px;
+                    background-color: #4A3A1A;
+                    border-radius: 25px;
+                    padding: 0px;
+                }
+            """)
+            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        elif icon_type == "critical":
+            icon_label.setText("✗")
+            icon_label.setStyleSheet("""
+                QLabel {
+                    font-size: 36pt;
+                    color: #E81123;
+                    font-weight: bold;
+                    min-width: 50px;
+                    max-width: 50px;
+                    min-height: 50px;
+                    max-height: 50px;
+                    background-color: #4A1A1A;
+                    border-radius: 25px;
+                    padding: 0px;
+                }
+            """)
+            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        elif icon_type == "information":
+            icon_label.setText("i")
+            icon_label.setStyleSheet("""
+                QLabel {
+                    font-size: 36pt;
+                    color: #0078D4;
+                    font-weight: bold;
+                    min-width: 50px;
+                    max-width: 50px;
+                    min-height: 50px;
+                    max-height: 50px;
+                    background-color: #1A3A4D;
+                    border-radius: 25px;
+                    padding: 0px;
+                }
+            """)
+            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        else:
+            icon_label.setMinimumWidth(0)
+            icon_label.setMaximumWidth(0)
+            icon_label.setMinimumHeight(0)
+            icon_label.setMaximumHeight(0)
+        
+        content_layout.addWidget(icon_label)
+        
+        # Message label
+        message_label = QLabel(message)
+        message_label.setWordWrap(True)
+        message_label.setStyleSheet("""
+            font-size: 10pt; 
+            line-height: 1.5;
+            color: #E0E0E0;
+        """)
+        content_layout.addWidget(message_label, 1)
+        
+        layout.addLayout(content_layout)
+        
+        # Buttons layout
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        
+        self.yes_button = QPushButton("Yes")
+        self.yes_button.clicked.connect(lambda: self.accept())
+        button_layout.addWidget(self.yes_button)
+        
+        self.no_button = QPushButton("No")
+        self.no_button.setObjectName("secondary")
+        self.no_button.clicked.connect(lambda: self.reject())
+        button_layout.addWidget(self.no_button)
+        
+        layout.addLayout(button_layout)
+        
+        # Set default button and focus
+        self.yes_button.setDefault(True)
+        self.yes_button.setFocus()
+        
+        # Set minimum width for better appearance
+        self.setMinimumWidth(450)
+    
+    @staticmethod
+    def question(parent, title, message):
+        """Show a question dialog (Yes/No)."""
+        dialog = DarkMessageBox(parent, title, message, "question")
+        result = dialog.exec()
+        return result == QDialog.DialogCode.Accepted
+    
+    @staticmethod
+    def warning(parent, title, message):
+        """Show a warning dialog (OK)."""
+        dialog = DarkMessageBox(parent, title, message, "warning")
+        dialog.no_button.hide()
+        dialog.yes_button.setText("OK")
+        dialog.exec()
+    
+    @staticmethod
+    def critical(parent, title, message):
+        """Show a critical error dialog (OK)."""
+        dialog = DarkMessageBox(parent, title, message, "critical")
+        dialog.no_button.hide()
+        dialog.yes_button.setText("OK")
+        dialog.exec()
+    
+    @staticmethod
+    def information(parent, title, message):
+        """Show an information dialog (OK)."""
+        dialog = DarkMessageBox(parent, title, message, "information")
+        dialog.no_button.hide()
+        dialog.yes_button.setText("OK")
+        dialog.exec()
 
 class DXVKManagerGUI:
     def __init__(self, manager):
@@ -617,7 +816,7 @@ class DXVKManagerGUI:
         """Start DXVK installation with confirmation."""
         folder = self.folder_input.text()
         if not folder:
-            QMessageBox.warning(
+            DarkMessageBox.warning(
                 self.window, 
                 "No Game Selected", 
                 "Please select a game folder first.\n\n"
@@ -627,15 +826,13 @@ class DXVKManagerGUI:
         
         architecture = self.architecture_label.text()
         if architecture in ["Not detected", "Unknown", "Error", "Analyzing..."]:
-            reply = QMessageBox.warning(
+            if not DarkMessageBox.question(
                 self.window, 
                 "Architecture Not Detected", 
                 "Could not detect if your game is 32-bit or 64-bit.\n\n"
                 "Installation may fail. Do you want to continue anyway?\n\n"
-                "Tip: Make sure you selected the folder containing the game's main .exe file.",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            if reply == QMessageBox.StandardButton.No:
+                "Tip: Make sure you selected the folder containing the game's main .exe file."
+            ):
                 return
         
         # Determine DirectX version
@@ -662,15 +859,11 @@ class DXVKManagerGUI:
             f"Continue with installation?"
         )
         
-        reply = QMessageBox.question(
+        if not DarkMessageBox.question(
             self.window,
             "Confirm Installation",
-            confirm_msg,
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
-        )
-        
-        if reply == QMessageBox.StandardButton.No:
+            confirm_msg
+        ):
             return
         
         backup_enabled = True  # Always enabled
@@ -700,7 +893,7 @@ class DXVKManagerGUI:
         self.install_btn.setText("4. Install DXVK")
         
         if success:
-            QMessageBox.information(
+            DarkMessageBox.information(
                 self.window, 
                 "Installation Complete!", 
                 f"{message}\n\n"
@@ -710,7 +903,7 @@ class DXVKManagerGUI:
                 f"DXVK should improve graphics performance!"
             )
         else:
-            QMessageBox.critical(
+            DarkMessageBox.critical(
                 self.window, 
                 "Installation Failed", 
                 f"{message}\n\n"
@@ -726,74 +919,73 @@ class DXVKManagerGUI:
         """Uninstall DXVK."""
         folder = self.folder_input.text()
         if not folder:
-            QMessageBox.critical(self.window, "Error", "Please select a game folder first.")
+            DarkMessageBox.critical(self.window, "Error", "Please select a game folder first.")
             return
         
-        reply = QMessageBox.question(
+        if not DarkMessageBox.question(
             self.window,
             "Confirm Uninstall",
             "Are you sure you want to uninstall DXVK and restore backups?\n\n"
-            "This will restore the original DirectX DLL files from backup.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
+            "This will restore the original DirectX DLL files from backup."
+        ):
+            return
         
-        if reply == QMessageBox.StandardButton.Yes:
-            self.log_message(f"Starting uninstallation for: {folder}")
-            self.log_message("")
+        self.log_message(f"Starting uninstallation for: {folder}")
+        self.log_message("")
+        
+        # Capture print statements and errors
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+        
+        try:
+            with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
+                success = self.manager.uninstall_dxvk(folder)
             
-            # Capture print statements and errors
-            stdout_capture = io.StringIO()
-            stderr_capture = io.StringIO()
+            # Emit captured stdout
+            stdout_output = stdout_capture.getvalue()
+            if stdout_output:
+                for line in stdout_output.strip().split('\n'):
+                    if line.strip():
+                        self.log_message(line)
             
-            try:
-                with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-                    success = self.manager.uninstall_dxvk(folder)
-                
-                # Emit captured stdout
-                stdout_output = stdout_capture.getvalue()
-                if stdout_output:
-                    for line in stdout_output.strip().split('\n'):
-                        if line.strip():
-                            self.log_message(line)
-                
-                # Emit captured stderr
-                stderr_output = stderr_capture.getvalue()
-                if stderr_output:
-                    self.log_message("")
-                    self.log_message("Errors/Warnings:")
-                    for line in stderr_output.strip().split('\n'):
-                        if line.strip():
-                            self.log_message(f"  {line}")
-                
-                if success:
-                    self.log_message("")
-                    self.log_message("✓ DXVK uninstalled successfully!")
-                    QMessageBox.information(
-                        self.window, 
-                        "Success", 
-                        "DXVK uninstalled successfully!\nOriginal DLL files have been restored."
-                    )
-                else:
-                    self.log_message("")
-                    self.log_message("✗ DXVK uninstallation failed or no backup found.")
-                    QMessageBox.warning(
-                        self.window,
-                        "Warning",
-                                         "Uninstallation failed or no backup found.\n\n"
-                        "The backup folder may not exist, or there may have been an error during restoration."
-                    )
-            except Exception as e:
-                import traceback
-                error_msg = str(e)
-                error_trace = traceback.format_exc()
+            # Emit captured stderr
+            stderr_output = stderr_capture.getvalue()
+            if stderr_output:
                 self.log_message("")
-                self.log_message(f"✗ Error during uninstallation: {error_msg}")
-                self.log_message("")
-                self.log_message("Full error traceback:")
-                for line in error_trace.split('\n'):
+                self.log_message("Errors/Warnings:")
+                for line in stderr_output.strip().split('\n'):
                     if line.strip():
                         self.log_message(f"  {line}")
-                QMessageBox.critical(self.window, "Error", f"Uninstallation error:\n{error_msg}")
+            
+            if success:
+                self.log_message("")
+                self.log_message("✓ DXVK uninstalled successfully!")
+                DarkMessageBox.information(
+                    self.window, 
+                    "Success", 
+                    "DXVK uninstalled successfully!\nOriginal DLL files have been restored."
+                )
+            else:
+                self.log_message("")
+                self.log_message("✗ DXVK uninstallation failed or no backup found.")
+                DarkMessageBox.warning(
+                    self.window,
+                    "Warning",
+                    "Uninstallation failed or no backup found.\n\n"
+                    "The backup folder may not exist, or there may have been an error during restoration."
+                )
+        except Exception as e:
+            import traceback
+            error_msg = str(e)
+            error_trace = traceback.format_exc()
+            self.log_message("")
+            self.log_message(f"✗ Error during uninstallation: {error_msg}")
+            self.log_message("")
+            self.log_message("Full error traceback:")
+            for line in error_trace.split('\n'):
+                if line.strip():
+                    self.log_message(f"  {line}")
+            DarkMessageBox.critical(self.window, "Error", f"Uninstallation error:\n{error_msg}")
 
     def log_message(self, message):
         """Add a message to the log."""
