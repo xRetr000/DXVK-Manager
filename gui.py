@@ -677,15 +677,15 @@ class DXVKManagerGUI:
         if reply == QMessageBox.StandardButton.No:
             return
             
-        # Determine DirectX version
+            # Determine DirectX version
         if self.directx_combo.currentText() != "Auto-detect":
             directx_version = self.directx_combo.currentText()
-        else:
+            else:
             directx_text = self.directx_label.text()
             if directx_text != "Not detected" and directx_text != "Analyzing...":
-                directx_version = directx_text.split(", ")[0]
-            else:
-                directx_version = "Unknown"
+                    directx_version = directx_text.split(", ")[0]
+                else:
+                    directx_version = "Unknown"
             
         backup_enabled = self.backup_checkbox.isChecked()
         
@@ -710,15 +710,15 @@ class DXVKManagerGUI:
         """Handle installation completion with user-friendly messages."""
         self.install_btn.setEnabled(True)
         self.uninstall_btn.setEnabled(True)
-        
-        if success:
+            
+            if success:
             QMessageBox.information(
                 self.window, 
                 "Installation Complete", 
                 f"{message}\n\n"
                 "You can now launch your game. DXVK will automatically handle DirectX calls."
             )
-        else:
+            else:
             # Show detailed error dialog
             QMessageBox.critical(
                 self.window, 
