@@ -4,6 +4,14 @@ from github_downloader import GithubDownloader
 from file_manager import FileManager
 from logger import Logger
 
+# Import GUI at module level for PyInstaller compatibility
+# This ensures PyInstaller includes the gui module in the executable
+try:
+    from gui import DXVKManagerGUI
+except ImportError:
+    # Fallback if gui module not available (shouldn't happen in normal use)
+    DXVKManagerGUI = None
+
 class DXVKManager:
     def __init__(self):
         self.downloader = GithubDownloader()
@@ -11,23 +19,20 @@ class DXVKManager:
         self.logger = Logger()
 
     def install_dxvk(self, game_folder, architecture, directx_version, backup_enabled):
-        """Main installation logic with Windows-specific error handling."""
+        """Main installation logic."""
         try:
-            # Validate inputs with user-friendly messages
+            # Validate inputs
             if not game_folder or not os.path.exists(game_folder):
-                raise ValueError(
-                    f"Game folder does not exist:\n{game_folder}\n\n"
-                    "Please select a valid game folder containing the game's .exe file."
-                )
+                raise ValueError(f"Game folder does not exist: {game_folder}")
             
             if architecture not in ["32-bit", "64-bit"]:
                 if architecture in ["Not detected", "Unknown", "Error"]:
                     raise ValueError(
-                        "Could not detect game architecture.\n\n"
+                        "Could not detect game architecture (32-bit or 64-bit).\n\n"
                         "Please ensure:\n"
-                        "1. The folder contains a valid .exe file\n"
-                        "2. The .exe file is not corrupted\n"
-                        "3. You have read permissions for the folder"
+                        "• You selected the folder containing the game's main .exe file\n"
+                        "• The .exe file is a valid Windows executable\n"
+                        "• The game folder is accessible"
                     )
                 else:
                     raise ValueError(f"Invalid architecture: {architecture}")
@@ -40,14 +45,7 @@ class DXVKManager:
             file_format = release_info.get('download_format', 'tar.gz')
             
             if not download_url:
-                raise ValueError(
-                    "Could not find DXVK download URL.\n\n"
-                    "Possible causes:\n"
-                    "- No internet connection\n"
-                    "- GitHub API is unavailable\n"
-                    "- DXVK release format changed\n\n"
-                    "Please check your internet connection and try again."
-                )
+                raise ValueError("Could not find download URL in release information. The DXVK release may not have a downloadable asset.")
             
             print(f"Latest DXVK version: {version}")
             print(f"Download URL: {download_url}")
@@ -83,15 +81,7 @@ class DXVKManager:
                 
                 # If we have at least some DLLs extracted, proceed (especially for Unknown case)
                 if not extracted_dlls:
-                    raise ValueError(
-                        f"Failed to extract required DLLs.\n\n"
-                        f"Missing DLLs: {', '.join(missing_dlls)}\n\n"
-                        "Possible causes:\n"
-                        "- DXVK release structure changed\n"
-                        "- Architecture mismatch\n"
-                        "- Download was corrupted\n\n"
-                        "Please try again or report this issue."
-                    )
+                    raise ValueError(f"Failed to extract any required DLLs. Missing: {', '.join(missing_dlls)}. The DXVK release may have a different structure.")
                 
                 # Warn about missing DLLs but don't fail if we have some
                 if missing_dlls:
@@ -121,13 +111,10 @@ class DXVKManager:
                     raise ValueError(
                         "No DLLs were installed.\n\n"
                         "Possible causes:\n"
-                        "- Insufficient permissions (try running as administrator)\n"
-                        "- Game folder is read-only\n"
-                        "- Files are locked by another program\n"
-                        "- Antivirus is blocking the operation\n\n"
-                        "If the game is in Program Files, you may need to:\n"
-                        "1. Run DXVK Manager as administrator, OR\n"
-                        "2. Move the game to a folder outside Program Files"
+                        "• Game folder requires administrator privileges (try running as Admin)\n"
+                        "• Game is currently running (close it first)\n"
+                        "• Antivirus is blocking file operations\n"
+                        "• Folder is read-only or protected"
                     )
                 
                 # Step 7: Log the installation
@@ -136,48 +123,28 @@ class DXVKManager:
                 print(f"DXVK installation completed successfully! Installed: {', '.join(installed_dlls)}")
                 return True
                 
-        except PermissionError as e:
-            # Permission errors already have user-friendly messages
-            print(f"Installation failed: {str(e)}")
-            return False
-        except ValueError as e:
-            # Validation errors already have user-friendly messages
-            print(f"Installation failed: {str(e)}")
-            return False
         except Exception as e:
-            error_msg = (
-                f"Installation failed with unexpected error:\n{str(e)}\n\n"
-                "Please check:\n"
-                "- Internet connection\n"
-                "- Game folder permissions\n"
-                "- Antivirus settings\n"
-                "- Windows Event Viewer for more details"
-            )
-            print(error_msg)
+            print(f"Installation failed: {str(e)}")
             import traceback
-            print(f"\nTechnical details:\n{traceback.format_exc()}")
+            print(f"Error details: {traceback.format_exc()}")
             return False
 
     def uninstall_dxvk(self, game_folder):
         """Uninstalls DXVK by restoring backups."""
         try:
-            if not game_folder or not os.path.exists(game_folder):
-                print("Error: Game folder does not exist.")
-                return False
             return self.file_manager.restore_dlls(game_folder)
-        except PermissionError as e:
-            print(f"Uninstallation failed: {str(e)}")
-            return False
         except Exception as e:
             print(f"Uninstallation failed: {str(e)}")
             return False
 
 def main():
     """Main entry point for the application."""
-    manager = DXVKManager()
+    if DXVKManagerGUI is None:
+        print("Error: GUI module not found!")
+        print("Please ensure gui.py is in the same directory as dxvk_manager.py")
+        return
     
-    # Import GUI here to avoid circular imports
-    from gui import DXVKManagerGUI
+    manager = DXVKManager()
     
     # Create and run the GUI
     gui = DXVKManagerGUI(manager)

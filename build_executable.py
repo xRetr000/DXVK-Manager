@@ -24,6 +24,15 @@ def build_executable():
     """Build the standalone executable."""
     print("Building DXVK Manager executable...")
     
+    # Remove old spec file if it exists to force regeneration with new hidden imports
+    spec_file = "DXVK_Manager.spec"
+    if os.path.exists(spec_file):
+        print(f"Removing old spec file: {spec_file}")
+        try:
+            os.remove(spec_file)
+        except Exception as e:
+            print(f"Warning: Could not remove old spec file: {e}")
+    
     # PyInstaller command
     # Note: --windowed hides console, but we keep console for debugging for now
     # Change --noconsole to --windowed if you want no console window
@@ -36,18 +45,30 @@ def build_executable():
         "--name", "DXVK_Manager",
         "--hidden-import", "pefile",
         "--hidden-import", "requests",
+        # PyQt6 modules
         "--hidden-import", "PyQt6",
         "--hidden-import", "PyQt6.QtCore",
         "--hidden-import", "PyQt6.QtGui",
         "--hidden-import", "PyQt6.QtWidgets",
-        "--hidden-import", "platform_utils",
+        "--collect-submodules", "PyQt6",  # Collect all PyQt6 submodules
+        # Local modules - must be explicitly included for PyInstaller
+        "--hidden-import", "gui",
+        "--hidden-import", "exe_analyzer",
+        "--hidden-import", "file_manager",
+        "--hidden-import", "logger",
+        "--hidden-import", "github_downloader",
+        # Standard library modules
         "--hidden-import", "zipfile",
         "--hidden-import", "io",
         "--hidden-import", "json",
         "--hidden-import", "datetime",
         "--hidden-import", "tempfile",
         "--hidden-import", "shutil",
+        "--hidden-import", "ctypes",  # For admin detection
+        "--hidden-import", "winreg",  # Windows registry access
+        "--hidden-import", "traceback",  # For error reporting
         "--clean",  # Clean PyInstaller cache before building
+        # Remove old spec file if it exists to force regeneration
         "dxvk_manager.py"
     ]
     

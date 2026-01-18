@@ -121,30 +121,33 @@ class DetectionThread(QThread):
                 self.detected_signal.emit("Error", "Error")
                 return
             
-            # Find executable files (.exe on Windows)
+            # Find .exe files (Windows only)
             exe_files = []
             
-            # Windows-only: look for .exe files
+            # Search recursively (limited depth)
             for root, dirs, files in os.walk(self.folder):
                 depth = root[len(self.folder):].count(os.sep)
-                if depth > 1:
+                if depth > 1:  # Only go 1 level deep
                     dirs[:] = []
                 
                 for f in files:
                     if f.lower().endswith('.exe'):
                         exe_files.append(os.path.join(root, f))
             
+            # Also check root folder
             if not exe_files:
-                # Check root folder directly
                 try:
                     exe_files = [os.path.join(self.folder, f) 
                                 for f in os.listdir(self.folder) 
                                 if f.lower().endswith('.exe')]
                 except PermissionError:
-                    pass
+                    self.log_signal.emit("Error: Cannot access folder. You may need administrator privileges.")
+                    self.detected_signal.emit("Error", "Error")
+                    return
             
             if not exe_files:
                 self.log_signal.emit("No .exe files found in the selected folder.")
+                self.log_signal.emit("Tip: Make sure you selected the folder containing the game's main executable.")
                 self.detected_signal.emit("Not found", "Not found")
                 return
             
@@ -178,15 +181,15 @@ class DetectionThread(QThread):
             self.detected_signal.emit("Error", "Error")
 
 class ModernCard(QFrame):
-    """A Windows 11 Fluent Design card widget with rounded corners."""
+    """A modern card widget with rounded corners and shadow effect."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setStyleSheet("""
             QFrame {
-                background-color: #FFFFFF;
+                background-color: #2D2D2D;
                 border-radius: 8px;
-                border: 1px solid #E1E1E1;
+                border: 1px solid #404040;
             }
         """)
 
@@ -197,20 +200,16 @@ class DXVKManagerGUI:
         if self.app is None:
             self.app = QApplication(sys.argv)
         
-        # Apply Windows 11 native style
-        # Try Windows 11 native style first, fallback to Fusion
-        try:
-            self.app.setStyle('windows11')
-        except:
-            try:
-                self.app.setStyle('windowsvista')
-            except:
-                self.app.setStyle('Fusion')
+        # Use Windows native style for Windows 11 look
+        self.app.setStyle('windowsvista')  # Windows 11 compatible native style
         
         self.window = QMainWindow()
         self.window.setWindowTitle("DXVK Manager")
         self.window.setMinimumSize(900, 650)
         self.window.resize(1000, 700)
+        
+        # Enable Windows 11 rounded corners and modern look
+        self.window.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
         
         self.apply_windows11_theme()
         
@@ -218,10 +217,10 @@ class DXVKManagerGUI:
         central_widget = QWidget()
         self.window.setCentralWidget(central_widget)
         
-        # Main layout (horizontal split) - Windows 11 spacing
+        # Main layout (horizontal split)
         main_layout = QHBoxLayout(central_widget)
-        main_layout.setSpacing(16)
-        main_layout.setContentsMargins(24, 24, 24, 24)
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(20, 20, 20, 20)
         
         # Left panel - Controls
         left_panel = self.create_left_panel()
@@ -236,33 +235,61 @@ class DXVKManagerGUI:
         self.detect_thread = None
     
     def apply_windows11_theme(self):
-        """Apply Windows 11 native Fluent Design theme with system colors."""
-        # Use system colors for light/dark mode support
-        palette = QPalette()
+        """Apply Windows 11 native theme with system colors."""
+        import winreg
+        use_dark = True  # Default to dark mode
         
-        # Windows 11 Fluent Design colors (adapts to system theme)
-        # Light mode base colors
-        palette.setColor(QPalette.ColorRole.Window, QColor(243, 243, 243))
-        palette.setColor(QPalette.ColorRole.WindowText, QColor(0, 0, 0))
-        palette.setColor(QPalette.ColorRole.Base, QColor(255, 255, 255))
-        palette.setColor(QPalette.ColorRole.AlternateBase, QColor(249, 249, 249))
-        palette.setColor(QPalette.ColorRole.Text, QColor(0, 0, 0))
-        palette.setColor(QPalette.ColorRole.Button, QColor(255, 255, 255))
-        palette.setColor(QPalette.ColorRole.ButtonText, QColor(0, 0, 0))
-        palette.setColor(QPalette.ColorRole.Highlight, QColor(0, 120, 215))  # Windows accent color
-        palette.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
-        palette.setColor(QPalette.ColorRole.Link, QColor(0, 120, 215))
+        try:
+            # Detect Windows dark mode preference
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
+                                r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+            use_dark = winreg.QueryValueEx(key, "AppsUseLightTheme")[0] == 0
+            winreg.CloseKey(key)
+        except (FileNotFoundError, OSError, ValueError):
+            # Registry key doesn't exist (older Windows) or access denied
+            # Default to dark mode
+            pass
         
-        self.app.setPalette(palette)
+        if use_dark:
+            # Windows 11 Dark Mode colors
+            palette = QPalette()
+            palette.setColor(QPalette.ColorRole.Window, QColor(32, 32, 32))
+            palette.setColor(QPalette.ColorRole.WindowText, QColor(255, 255, 255))
+            palette.setColor(QPalette.ColorRole.Base, QColor(25, 25, 25))
+            palette.setColor(QPalette.ColorRole.AlternateBase, QColor(42, 42, 42))
+            palette.setColor(QPalette.ColorRole.Text, QColor(255, 255, 255))
+            palette.setColor(QPalette.ColorRole.Button, QColor(42, 42, 42))
+            palette.setColor(QPalette.ColorRole.ButtonText, QColor(255, 255, 255))
+            palette.setColor(QPalette.ColorRole.Highlight, QColor(0, 120, 215))  # Windows accent
+            palette.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
+            self.app.setPalette(palette)
         
-        # Windows 11 Fluent Design styling with rounded corners and proper spacing
+        # Windows 11 Fluent Design styling
         self.window.setStyleSheet("""
             QMainWindow {
-                background-color: #F3F3F3;
+                background-color: #202020;
             }
-            QWidget {
-                font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-                font-size: 9pt;
+            QFrame {
+                background-color: #2D2D2D;
+                border-radius: 8px;
+                border: none;
+            }
+            QPushButton {
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #3A3A3A, stop:1 #2D2D2D);
+            }
+            QLineEdit, QComboBox {
+                border-radius: 4px;
+                padding: 6px;
+                border: 1px solid #404040;
+            }
+            QLineEdit:focus, QComboBox:focus {
+                border: 2px solid #0078D4;
             }
         """)
     
@@ -273,53 +300,53 @@ class DXVKManagerGUI:
         layout.setSpacing(15)
         layout.setContentsMargins(20, 20, 20, 20)
         
-        # Title - Windows 11 typography
+        # Title
         title = QLabel("DXVK Manager")
-        title_font = QFont("Segoe UI", 20, QFont.Weight.Bold)
+        title_font = QFont()
+        title_font.setPointSize(18)
+        title_font.setBold(True)
         title.setFont(title_font)
-        title.setStyleSheet("color: #202020; margin-bottom: 8px;")
+        title.setStyleSheet("color: #FFFFFF; margin-bottom: 10px;")
         layout.addWidget(title)
         
-        # Game folder selection
-        folder_label = QLabel("Game Folder:")
-        folder_label.setStyleSheet("font-weight: 600; color: #323130; font-size: 9pt; margin-top: 8px;")
+        # Game folder selection - Make it the primary action
+        folder_label = QLabel("1. Select Game Folder")
+        folder_label.setStyleSheet("font-weight: 600; font-size: 11pt; color: #E0E0E0;")
         layout.addWidget(folder_label)
         
+        folder_hint = QLabel("Choose the folder containing your game's .exe file")
+        folder_hint.setStyleSheet("color: #999999; font-size: 9pt;")
+        layout.addWidget(folder_hint)
+        
         folder_layout = QHBoxLayout()
-        folder_layout.setSpacing(8)
         self.folder_input = QLineEdit()
         self.folder_input.setReadOnly(True)
-        self.folder_input.setPlaceholderText("Click Browse to select game folder...")
+        self.folder_input.setPlaceholderText("Click Browse to select your game folder...")
         self.folder_input.setStyleSheet("""
             QLineEdit {
-                padding: 10px 12px;
-                border: 1px solid #D2D0CE;
+                padding: 8px;
+                border: 1px solid #404040;
                 border-radius: 4px;
-                background-color: #FFFFFF;
-                color: #323130;
-                font-size: 9pt;
+                background-color: #1E1E1E;
+                color: #FFFFFF;
             }
             QLineEdit:focus {
-                border: 2px solid #0078D4;
-                padding: 9px 11px;
-            }
-            QLineEdit:hover {
-                border-color: #8A8886;
+                border: 1px solid #00A2FF;
             }
         """)
-        folder_layout.addWidget(self.folder_input, 1)
+        folder_layout.addWidget(self.folder_input)
         
         browse_btn = QPushButton("Browse...")
+        browse_btn.setToolTip("Select the folder where your game is installed")
         browse_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0078D4;
                 color: white;
                 border: none;
-                padding: 10px 20px;
+                padding: 8px 20px;
                 border-radius: 4px;
                 font-weight: 600;
-                font-size: 9pt;
-                min-width: 80px;
+                font-size: 10pt;
             }
             QPushButton:hover {
                 background-color: #106EBE;
@@ -327,42 +354,34 @@ class DXVKManagerGUI:
             QPushButton:pressed {
                 background-color: #005A9E;
             }
-            QPushButton:disabled {
-                background-color: #E1E1E1;
-                color: #8A8886;
-            }
         """)
         browse_btn.clicked.connect(self.browse_game_folder)
         folder_layout.addWidget(browse_btn)
         layout.addLayout(folder_layout)
         
-        # Detection results card - Windows 11 info card
+        # Detection results card
         detection_card = ModernCard()
         detection_layout = QVBoxLayout(detection_card)
-        detection_layout.setSpacing(12)
-        detection_layout.setContentsMargins(16, 16, 16, 16)
+        detection_layout.setSpacing(10)
+        detection_layout.setContentsMargins(15, 15, 15, 15)
         
-        detection_title = QLabel("Detection Results")
-        detection_title_font = QFont("Segoe UI", 11, QFont.Weight.SemiBold)
-        detection_title.setFont(detection_title_font)
-        detection_title.setStyleSheet("color: #323130; margin-bottom: 4px;")
+        detection_title = QLabel("2. Detection Results")
+        detection_title.setStyleSheet("font-weight: 600; color: #E0E0E0; font-size: 11pt;")
         detection_layout.addWidget(detection_title)
         
         # Architecture
         arch_layout = QHBoxLayout()
-        arch_layout.setSpacing(8)
         arch_label = QLabel("Architecture:")
-        arch_label.setStyleSheet("color: #605E5C; font-size: 9pt;")
+        arch_label.setStyleSheet("color: #B0B0B0;")
         arch_layout.addWidget(arch_label)
         self.architecture_label = QLabel("Not detected")
         self.architecture_label.setStyleSheet("""
             QLabel {
-                color: #0078D4;
+                color: #00A2FF;
                 font-weight: 600;
-                padding: 6px 12px;
-                background-color: #E8F4F8;
+                padding: 4px 8px;
+                background-color: #1A3A4D;
                 border-radius: 4px;
-                font-size: 9pt;
             }
         """)
         arch_layout.addWidget(self.architecture_label)
@@ -371,19 +390,17 @@ class DXVKManagerGUI:
         
         # DirectX version
         dx_layout = QHBoxLayout()
-        dx_layout.setSpacing(8)
         dx_label = QLabel("DirectX Version:")
-        dx_label.setStyleSheet("color: #605E5C; font-size: 9pt;")
+        dx_label.setStyleSheet("color: #B0B0B0;")
         dx_layout.addWidget(dx_label)
         self.directx_label = QLabel("Not detected")
         self.directx_label.setStyleSheet("""
             QLabel {
-                color: #0078D4;
+                color: #00A2FF;
                 font-weight: 600;
-                padding: 6px 12px;
-                background-color: #E8F4F8;
+                padding: 4px 8px;
+                background-color: #1A3A4D;
                 border-radius: 4px;
-                font-size: 9pt;
             }
         """)
         dx_layout.addWidget(self.directx_label)
@@ -393,98 +410,79 @@ class DXVKManagerGUI:
         layout.addWidget(detection_card)
         
         # DirectX override
-        override_label = QLabel("Override DirectX Version:")
-        override_label.setStyleSheet("font-weight: 600; color: #323130; font-size: 9pt; margin-top: 8px;")
+        override_label = QLabel("3. DirectX Version (if auto-detect fails):")
+        override_label.setStyleSheet("font-weight: 600; color: #E0E0E0; font-size: 10pt;")
         layout.addWidget(override_label)
         
         self.directx_combo = QComboBox()
         self.directx_combo.addItems(["Auto-detect", "Direct3D 9", "Direct3D 10", "Direct3D 11"])
+        self.directx_combo.setToolTip("Manually select DirectX version if auto-detection fails")
         self.directx_combo.setStyleSheet("""
             QComboBox {
-                padding: 10px 12px;
-                border: 1px solid #D2D0CE;
+                padding: 8px;
+                border: 1px solid #404040;
                 border-radius: 4px;
-                background-color: #FFFFFF;
-                color: #323130;
-                font-size: 9pt;
+                background-color: #1E1E1E;
+                color: #FFFFFF;
             }
             QComboBox:hover {
-                border-color: #8A8886;
-            }
-            QComboBox:focus {
-                border: 2px solid #0078D4;
-                padding: 9px 11px;
+                border-color: #00A2FF;
             }
             QComboBox::drop-down {
                 border: none;
-                background-color: transparent;
-                width: 30px;
-            }
-            QComboBox::down-arrow {
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid #323130;
-                margin-right: 8px;
+                background-color: #2D2D2D;
             }
             QComboBox QAbstractItemView {
-                background-color: #FFFFFF;
-                color: #323130;
-                selection-background-color: #E8F4F8;
-                selection-color: #0078D4;
-                border: 1px solid #D2D0CE;
-                border-radius: 4px;
-                padding: 4px;
+                background-color: #2D2D2D;
+                color: #FFFFFF;
+                selection-background-color: #00A2FF;
+                border: 1px solid #404040;
             }
         """)
         layout.addWidget(self.directx_combo)
         
-        # Backup option
-        self.backup_checkbox = QCheckBox("Create backup of existing DLLs (recommended)")
+        # Backup option - Always enabled for safety
+        self.backup_checkbox = QCheckBox("Create backup before installing (Recommended)")
         self.backup_checkbox.setChecked(True)
-        self.backup_checkbox.setToolTip("Backs up original DirectX DLLs before installing DXVK")
+        self.backup_checkbox.setToolTip("Always creates a backup so you can restore original files if needed")
+        self.backup_checkbox.setEnabled(False)  # Always enabled - can't disable for safety
         self.backup_checkbox.setStyleSheet("""
             QCheckBox {
-                color: #323130;
+                color: #E0E0E0;
                 spacing: 8px;
-                font-size: 9pt;
-                margin-top: 8px;
             }
             QCheckBox::indicator {
-                width: 20px;
-                height: 20px;
-                border: 2px solid #8A8886;
-                border-radius: 4px;
-                background-color: #FFFFFF;
+                width: 18px;
+                height: 18px;
+                border: 2px solid #404040;
+                border-radius: 3px;
+                background-color: #1E1E1E;
             }
             QCheckBox::indicator:checked {
-                background-color: #0078D4;
-                border: 2px solid #0078D4;
-                image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEzLjMzMzMgNEw2IDEyTDIuNjY2NjcgOC42NjY2NyIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+);
+                background-color: #00A2FF;
+                border: 2px solid #00A2FF;
             }
             QCheckBox::indicator:hover {
-                border-color: #0078D4;
+                border-color: #00A2FF;
             }
         """)
         layout.addWidget(self.backup_checkbox)
         
-        # Action buttons - Windows 11 primary/secondary button style
+        # Action buttons
         button_layout = QVBoxLayout()
-        button_layout.setSpacing(12)
-        button_layout.setContentsMargins(0, 16, 0, 0)
+        button_layout.setSpacing(10)
         
-        self.install_btn = QPushButton("Install DXVK")
-        self.install_btn.setToolTip("Install DXVK DLLs to the selected game folder")
+        self.install_btn = QPushButton("4. Install DXVK")
+        self.install_btn.setToolTip("Downloads and installs DXVK DLLs to your game folder")
         self.install_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0078D4;
                 color: white;
                 border: none;
-                padding: 12px 24px;
-                border-radius: 4px;
+                padding: 14px;
+                border-radius: 6px;
                 font-weight: 600;
-                font-size: 10pt;
-                min-height: 36px;
+                font-size: 12pt;
             }
             QPushButton:hover {
                 background-color: #106EBE;
@@ -493,37 +491,34 @@ class DXVKManagerGUI:
                 background-color: #005A9E;
             }
             QPushButton:disabled {
-                background-color: #E1E1E1;
-                color: #8A8886;
+                background-color: #404040;
+                color: #808080;
             }
         """)
         self.install_btn.clicked.connect(self.install_dxvk)
         button_layout.addWidget(self.install_btn)
         
-        self.uninstall_btn = QPushButton("Uninstall DXVK")
-        self.uninstall_btn.setToolTip("Restore original DLLs from backup")
+        self.uninstall_btn = QPushButton("Restore Original DLLs")
+        self.uninstall_btn.setToolTip("Restores the original DirectX DLLs from backup")
         self.uninstall_btn.setStyleSheet("""
             QPushButton {
-                background-color: #FFFFFF;
-                color: #323130;
-                border: 1px solid #D2D0CE;
-                padding: 12px 24px;
-                border-radius: 4px;
-                font-weight: 600;
+                background-color: #5A5A5A;
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 6px;
+                font-weight: 500;
                 font-size: 10pt;
-                min-height: 36px;
             }
             QPushButton:hover {
-                background-color: #F3F2F1;
-                border-color: #8A8886;
+                background-color: #6A6A6A;
             }
             QPushButton:pressed {
-                background-color: #EDEBE9;
+                background-color: #4A4A4A;
             }
             QPushButton:disabled {
-                background-color: #F3F2F1;
-                color: #8A8886;
-                border-color: #E1E1E1;
+                background-color: #404040;
+                color: #808080;
             }
         """)
         self.uninstall_btn.clicked.connect(self.uninstall_dxvk)
@@ -538,71 +533,58 @@ class DXVKManagerGUI:
         """Create the right log panel."""
         panel = ModernCard()
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(10)
         
         # Title
         log_title = QLabel("Activity Log")
-        log_title_font = QFont("Segoe UI", 11, QFont.Weight.SemiBold)
+        log_title_font = QFont()
+        log_title_font.setPointSize(14)
+        log_title_font.setBold(True)
         log_title.setFont(log_title_font)
-        log_title.setStyleSheet("color: #323130; margin-bottom: 4px;")
+        log_title.setStyleSheet("color: #FFFFFF; margin-bottom: 5px;")
         layout.addWidget(log_title)
         
-        # Log text area - Windows 11 text box style
+        # Log text area
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
-        self.log_text.setPlaceholderText("Activity log will appear here...")
         self.log_text.setStyleSheet("""
             QTextEdit {
-                background-color: #FFFFFF;
-                color: #323130;
-                border: 1px solid #D2D0CE;
-                border-radius: 4px;
-                padding: 12px;
-                font-family: 'Consolas', 'Cascadia Code', 'Courier New', monospace;
-                font-size: 9pt;
-                selection-background-color: #E8F4F8;
-                selection-color: #0078D4;
-            }
-            QTextEdit:focus {
-                border: 2px solid #0078D4;
-                padding: 11px;
-            }
-            QScrollBar:vertical {
-                background-color: #F3F2F1;
-                width: 12px;
-                border: none;
+                background-color: #1E1E1E;
+                color: #D4D4D4;
+                border: 1px solid #3C3C3C;
                 border-radius: 6px;
-            }
-            QScrollBar::handle:vertical {
-                background-color: #C1BEB9;
-                border-radius: 6px;
-                min-height: 20px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background-color: #8A8886;
+                padding: 10px;
+                font-family: 'Consolas', 'Courier New', monospace;
+                font-size: 10pt;
             }
         """)
         layout.addWidget(self.log_text)
         
-        # Show welcome message
-        self.log_message("Welcome to DXVK Manager!")
-        self.log_message("")
-        self.log_message("To get started:")
-        self.log_message("1. Click 'Browse...' to select your game folder")
-        self.log_message("2. Wait for automatic detection of architecture and DirectX version")
-        self.log_message("3. Click 'Install DXVK' to install")
-        self.log_message("")
-        self.log_message("Ready to begin...")
-        
         return panel
     
     def browse_game_folder(self):
-        """Open folder dialog to select game folder."""
+        """Open folder dialog to select Windows game folder."""
+        # Start in common game locations
+        common_paths = [
+            os.path.expanduser("~\\Documents"),
+            "C:\\Program Files",
+            "C:\\Program Files (x86)",
+            "C:\\Games",
+            "D:\\Games",
+            "E:\\Games",
+        ]
+        
+        start_path = ""
+        for path in common_paths:
+            if os.path.exists(path):
+                start_path = path
+                break
+        
         folder = QFileDialog.getExistingDirectory(
             self.window, 
-            "Select Game Folder",
-            "",
+            "Select Game Folder\n(Choose the folder containing your game's .exe file)",
+            start_path,
             QFileDialog.Option.ShowDirsOnly
         )
         if folder:
@@ -632,12 +614,12 @@ class DXVKManagerGUI:
         self.directx_label.setText(directx)
 
     def install_dxvk(self):
-        """Start DXVK installation with user-friendly confirmation."""
+        """Start DXVK installation with confirmation."""
         folder = self.folder_input.text()
         if not folder:
             QMessageBox.warning(
                 self.window, 
-                "No Folder Selected",
+                "No Game Selected", 
                 "Please select a game folder first.\n\n"
                 "Click 'Browse...' to choose the folder containing your game's .exe file."
             )
@@ -648,50 +630,55 @@ class DXVKManagerGUI:
             reply = QMessageBox.warning(
                 self.window, 
                 "Architecture Not Detected", 
-                "Could not detect the game's architecture (32-bit or 64-bit).\n\n"
-                "Installation may fail or install the wrong DLLs.\n\n"
-                "Do you want to continue anyway?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
+                "Could not detect if your game is 32-bit or 64-bit.\n\n"
+                "Installation may fail. Do you want to continue anyway?\n\n"
+                "Tip: Make sure you selected the folder containing the game's main .exe file.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if reply == QMessageBox.StandardButton.No:
                 return
         
-        # Show confirmation dialog before installing
-        directx_text = self.directx_label.text()
-        backup_text = "Yes (recommended)" if self.backup_checkbox.isChecked() else "No"
+        # Determine DirectX version
+        if self.directx_combo.currentText() != "Auto-detect":
+            directx_version = self.directx_combo.currentText()
+        else:
+            directx_text = self.directx_label.text()
+            if directx_text != "Not detected" and directx_text != "Analyzing...":
+                directx_version = directx_text.split(", ")[0]
+            else:
+                directx_version = "Unknown"
+        
+        # Show confirmation dialog with details
+        confirm_msg = (
+            f"Ready to install DXVK for:\n\n"
+            f"Game Folder: {folder}\n"
+            f"Architecture: {architecture}\n"
+            f"DirectX Version: {directx_version}\n\n"
+            f"This will:\n"
+            f"• Download the latest DXVK from GitHub\n"
+            f"• Create a backup of existing DLLs\n"
+            f"• Install DXVK DLLs to your game folder\n\n"
+            f"Make sure your game is NOT running.\n\n"
+            f"Continue with installation?"
+        )
         
         reply = QMessageBox.question(
             self.window,
             "Confirm Installation",
-            f"Install DXVK to:\n{folder}\n\n"
-            f"Architecture: {architecture}\n"
-            f"DirectX Version: {directx_text}\n"
-            f"Create Backup: {backup_text}\n\n"
-            "This will replace DirectX DLL files in the game folder.\n"
-            "Continue?",
+            confirm_msg,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
         
         if reply == QMessageBox.StandardButton.No:
             return
-            
-            # Determine DirectX version
-        if self.directx_combo.currentText() != "Auto-detect":
-            directx_version = self.directx_combo.currentText()
-            else:
-            directx_text = self.directx_label.text()
-            if directx_text != "Not detected" and directx_text != "Analyzing...":
-                    directx_version = directx_text.split(", ")[0]
-                else:
-                    directx_version = "Unknown"
-            
-        backup_enabled = self.backup_checkbox.isChecked()
+        
+        backup_enabled = True  # Always enabled
         
         # Disable buttons
         self.install_btn.setEnabled(False)
         self.uninstall_btn.setEnabled(False)
+        self.install_btn.setText("Installing...")
         
         # Stop previous thread if running
         if self.install_thread and self.install_thread.isRunning():
@@ -707,51 +694,47 @@ class DXVKManagerGUI:
         self.install_thread.start()
     
     def on_installation_finished(self, success, message):
-        """Handle installation completion with user-friendly messages."""
+        """Handle installation completion."""
         self.install_btn.setEnabled(True)
         self.uninstall_btn.setEnabled(True)
-            
-            if success:
+        self.install_btn.setText("4. Install DXVK")
+        
+        if success:
             QMessageBox.information(
                 self.window, 
-                "Installation Complete", 
+                "Installation Complete!", 
                 f"{message}\n\n"
-                "You can now launch your game. DXVK will automatically handle DirectX calls."
+                f"✓ DXVK has been installed successfully\n"
+                f"✓ Original DLLs backed up to 'dxvk_backup' folder\n\n"
+                f"You can now launch your game.\n"
+                f"DXVK should improve graphics performance!"
             )
-            else:
-            # Show detailed error dialog
+        else:
             QMessageBox.critical(
                 self.window, 
                 "Installation Failed", 
                 f"{message}\n\n"
-                "Please check:\n"
-                "- Internet connection\n"
-                "- Game folder permissions\n"
-                "- Antivirus settings\n"
-                "- Activity log for details"
+                f"Common causes:\n"
+                f"• Game folder requires administrator privileges\n"
+                f"• Game is currently running (close it first)\n"
+                f"• Antivirus blocking the installation\n"
+                f"• No internet connection\n\n"
+                f"Check the Activity Log below for detailed error information."
             )
 
     def uninstall_dxvk(self):
-        """Uninstall DXVK with user-friendly confirmation."""
+        """Uninstall DXVK."""
         folder = self.folder_input.text()
         if not folder:
-            QMessageBox.warning(
-                self.window, 
-                "No Folder Selected",
-                "Please select a game folder first.\n\n"
-                "Click 'Browse...' to choose the folder where DXVK was installed."
-            )
+            QMessageBox.critical(self.window, "Error", "Please select a game folder first.")
             return
         
         reply = QMessageBox.question(
             self.window,
             "Confirm Uninstall",
-            f"Uninstall DXVK from:\n{folder}\n\n"
-            "This will restore the original DirectX DLL files from backup.\n"
-            "If no backup exists, the DXVK DLLs will remain.\n\n"
-            "Continue?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+            "Are you sure you want to uninstall DXVK and restore backups?\n\n"
+            "This will restore the original DirectX DLL files from backup.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         
         if reply == QMessageBox.StandardButton.Yes:
@@ -787,23 +770,17 @@ class DXVKManagerGUI:
                     self.log_message("✓ DXVK uninstalled successfully!")
                     QMessageBox.information(
                         self.window, 
-                        "Uninstall Complete", 
-                        "DXVK has been uninstalled successfully!\n\n"
-                        "Original DirectX DLL files have been restored from backup."
+                        "Success", 
+                        "DXVK uninstalled successfully!\nOriginal DLL files have been restored."
                     )
                 else:
                     self.log_message("")
                     self.log_message("✗ DXVK uninstallation failed or no backup found.")
                     QMessageBox.warning(
                         self.window,
-                        "Uninstall Failed",
-                        "Could not uninstall DXVK.\n\n"
-                        "Possible reasons:\n"
-                        "- No backup folder found (DXVK may not have been installed)\n"
-                        "- Backup folder was deleted\n"
-                        "- Insufficient permissions\n"
-                        "- Files are locked by another program\n\n"
-                        "Check the activity log for details."
+                        "Warning",
+                                         "Uninstallation failed or no backup found.\n\n"
+                        "The backup folder may not exist, or there may have been an error during restoration."
                     )
             except Exception as e:
                 import traceback

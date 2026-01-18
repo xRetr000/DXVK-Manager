@@ -1,13 +1,13 @@
 """
-Windows executable analyzer for PE files.
+Windows-only executable analyzer for PE files.
 """
 import os
 import pefile
 
 def get_exe_architecture(exe_path):
     """
-    Analyzes the Windows PE executable header to determine its architecture.
-    Returns "32-bit" or "64-bit".
+    Analyzes the PE (Portable Executable) header to determine architecture.
+    Windows-only: Only supports PE files (.exe, .dll).
     """
     if not os.path.exists(exe_path):
         return "File not found"
@@ -27,7 +27,7 @@ def get_exe_architecture(exe_path):
 
 def detect_directx_version(game_folder):
     """
-    Scans a folder for DirectX-related DLLs to infer the DirectX version.
+    Scans a Windows game folder for DirectX-related DLLs to infer the DirectX version.
     """
     dlls = {
         "d3d9.dll": "Direct3D 9",
@@ -43,3 +43,5 @@ def detect_directx_version(game_folder):
             if version not in found_versions:
                 found_versions.append(version)
     return found_versions if found_versions else ["Unknown"]
+
+
