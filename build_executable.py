@@ -11,7 +11,7 @@ import os
 import subprocess
 import sys
 
-def install_pyinstaller():
+ def install_pyinstaller():
     """Install PyInstaller if not already installed."""
     try:
         import PyInstaller
