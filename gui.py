@@ -32,19 +32,25 @@ class InstallationThread(QThread):
             self.log_signal.emit(f"DirectX version: {self.directx_version}")
             self.log_signal.emit(f"Backup enabled: {self.backup_enabled}")
             self.log_signal.emit("")  # Empty line for readability
-            
+
+            if self.isInterruptionRequested():
+                return
+
             # Capture print statements and errors
             stdout_capture = io.StringIO()
             stderr_capture = io.StringIO()
-            
+
             try:
                 with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
                     success = self.manager.install_dxvk(
-                        self.game_folder, 
-                        self.architecture, 
-                        self.directx_version, 
+                        self.game_folder,
+                        self.architecture,
+                        self.directx_version,
                         self.backup_enabled
                     )
+
+                if self.isInterruptionRequested():
+                    return
                 
                 # Emit captured stdout
                 stdout_output = stdout_capture.getvalue()
@@ -114,26 +120,31 @@ class DetectionThread(QThread):
     def run(self):
         """Analyze the game folder."""
         self.log_signal.emit(f"Analyzing folder: {self.folder}")
-        
+
         try:
             if not os.path.exists(self.folder):
                 self.log_signal.emit("Error: Folder does not exist.")
                 self.detected_signal.emit("Error", "Error")
                 return
-            
+
+            if self.isInterruptionRequested():
+                return
+
             # Find .exe files (Windows only)
             exe_files = []
-            
+
             # Search recursively (limited depth)
             for root, dirs, files in os.walk(self.folder):
+                if self.isInterruptionRequested():
+                    return
                 depth = root[len(self.folder):].count(os.sep)
                 if depth > 1:  # Only go 1 level deep
                     dirs[:] = []
-                
+
                 for f in files:
                     if f.lower().endswith('.exe'):
                         exe_files.append(os.path.join(root, f))
-            
+
             # Also check root folder
             if not exe_files:
                 try:
@@ -154,9 +165,12 @@ class DetectionThread(QThread):
             if len(exe_files) > 1:
                 self.log_signal.emit(f"Multiple .exe files found: {len(exe_files)} files")
                 self.log_signal.emit(f"Using {os.path.basename(exe_files[0])} for analysis.")
-            
+
+            if self.isInterruptionRequested():
+                return
+
             exe_path = exe_files[0]
-            
+
             # Analyze architecture and DirectX
             try:
                 from exe_analyzer import get_exe_architecture, detect_directx_version
@@ -798,7 +812,7 @@ class DXVKManagerGUI:
         
         # Stop previous detection thread if running
         if self.detect_thread and self.detect_thread.isRunning():
-            self.detect_thread.terminate()
+            self.detect_thread.requestInterruption()
             self.detect_thread.wait()
         
         # Start new detection thread
@@ -875,7 +889,7 @@ class DXVKManagerGUI:
         
         # Stop previous thread if running
         if self.install_thread and self.install_thread.isRunning():
-            self.install_thread.terminate()
+            self.install_thread.requestInterruption()
             self.install_thread.wait()
         
         # Start installation thread

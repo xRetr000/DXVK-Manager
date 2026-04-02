@@ -11,7 +11,7 @@ class GithubDownloader:
     def get_latest_release_info(self):
         """Fetches information about the latest DXVK release."""
         url = f"{self.api_base_url}/releases/latest"
-        response = requests.get(url)
+        response = requests.get(url, timeout=30)
         response.raise_for_status()  # Raise an exception for HTTP errors
         release_data = response.json()
         
@@ -42,7 +42,7 @@ class GithubDownloader:
 
     def download_and_extract_dxvk(self, download_url, extract_path, arch, directx_version, file_format='tar.gz'):
         """Downloads the DXVK release and extracts the relevant DLLs."""
-        response = requests.get(download_url, stream=True)
+        response = requests.get(download_url, stream=True, timeout=60)
         response.raise_for_status()
         
         content = response.content
@@ -51,11 +51,13 @@ class GithubDownloader:
         subfolder = 'x64' if arch == '64-bit' else 'x32'
         
         # Map DirectX version to DXVK DLL names
+        # Must match the map in dxvk_manager.py exactly.
+        # DXVK does not ship d3d10.dll — it uses d3d10core.dll for D3D10 support.
         dll_map = {
             'Direct3D 9': ['d3d9.dll', 'dxgi.dll'],
-            'Direct3D 10': ['d3d10.dll', 'dxgi.dll'],
+            'Direct3D 10': ['d3d10core.dll', 'dxgi.dll'],
             'Direct3D 11': ['d3d11.dll', 'dxgi.dll'],
-            'Unknown': ['d3d9.dll', 'd3d10.dll', 'd3d11.dll', 'dxgi.dll'] # Extract all if unknown
+            'Unknown': ['d3d9.dll', 'd3d10core.dll', 'd3d11.dll', 'dxgi.dll'],
         }
         
         dlls_to_extract = dll_map.get(directx_version, [])
