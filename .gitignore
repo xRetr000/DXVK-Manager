@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+.eggs/
+
+# Build & distribution
+build/
+dist/
+
+# Logs
+*_log.json
+
+# Sandbox / scratch files
+sandbox.txt
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# PyInstaller
+*.spec
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp

@@ -1,7 +1,0 @@
-dxvk_manager
-exe_analyzer
-file_manager
-github_downloader
-gui
-logger
-platform_utils
