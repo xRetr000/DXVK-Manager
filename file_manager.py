@@ -6,6 +6,8 @@ import shutil
 import ctypes
 import sys
 
+MANIFEST_FILE = "installed_dlls.txt"
+
 def is_admin():
     """Check if running with administrator privileges."""
     try:
@@ -109,8 +111,8 @@ class FileManager:
 
     def backup_dlls(self, target_dir, dll_names):
         """
-        Creates a backup of existing DLLs in a subfolder.
-        Always creates backup - safety first for Windows users.
+        Creates a backup of existing DLLs in a subfolder and saves a manifest
+        of all DLLs being installed so uninstall knows what to remove.
         """
         backup_dir = os.path.join(target_dir, "dxvk_backup")
 
@@ -123,6 +125,18 @@ class FileManager:
                 f"Try running DXVK Manager as Administrator."
             )
 
+        # Save a manifest of which DLLs are being installed
+        # so uninstall knows exactly what to remove even if no originals existed
+        manifest_path = os.path.join(backup_dir, MANIFEST_FILE)
+        try:
+            with open(manifest_path, "w") as f:
+                for dll in dll_names:
+                    f.write(dll + "\n")
+            print(f"Saved install manifest: {dll_names}")
+        except Exception as e:
+            raise IOError(f"Failed to write install manifest: {str(e)}")
+
+        # Back up any original DLLs that already exist in the game folder
         backed_up_files = []
         for dll in dll_names:
             source_path = os.path.join(target_dir, dll)
@@ -137,23 +151,60 @@ class FileManager:
 
         if backed_up_files:
             print(f"Created backup of {len(backed_up_files)} file(s) in {backup_dir}")
+        else:
+            print("No original DLLs found to back up (game didn't have them). Manifest saved for clean uninstall.")
 
         return backed_up_files
 
     def restore_dlls(self, game_folder):
-        """Restores DLLs from the backup folder."""
+        """
+        Uninstalls DXVK by:
+        1. Reading the manifest to find which DLLs were installed
+        2. Deleting those DLLs from the game folder
+        3. Restoring any original DLLs from backup
+        4. Removing the backup folder
+        """
         backup_dir = os.path.join(game_folder, "dxvk_backup")
         if not os.path.exists(backup_dir):
-            print("No backup found.")
+            print("No backup folder found.")
             return False
 
         if not os.path.isdir(backup_dir):
             print(f"Backup path exists but is not a directory: {backup_dir}")
             return False
 
-        restored_files = []
+        # Read the manifest to know which DLLs were installed
+        manifest_path = os.path.join(backup_dir, MANIFEST_FILE)
+        installed_dlls = []
+        if os.path.exists(manifest_path):
+            try:
+                with open(manifest_path, "r") as f:
+                    installed_dlls = [line.strip() for line in f if line.strip()]
+                print(f"Manifest found. DLLs to remove: {installed_dlls}")
+            except Exception as e:
+                print(f"Warning: Could not read manifest: {e}")
+        else:
+            print("Warning: No manifest found. Will only restore backed-up files.")
+
         try:
+            # Step 1: Delete installed DXVK DLLs from game folder
+            removed_files = []
+            for dll in installed_dlls:
+                game_path = os.path.join(game_folder, dll)
+                if os.path.exists(game_path):
+                    try:
+                        _clear_readonly(game_path)
+                        os.remove(game_path)
+                        removed_files.append(dll)
+                        print(f"Removed installed DXVK file: {dll}")
+                    except Exception as e:
+                        print(f"Warning: Could not remove {dll}: {e}")
+
+            # Step 2: Restore original DLLs from backup (if any were backed up)
+            restored_files = []
             for item in os.listdir(backup_dir):
+                if item == MANIFEST_FILE:
+                    continue  # Skip the manifest file
                 backup_path = os.path.join(backup_dir, item)
                 game_path = os.path.join(game_folder, item)
                 if os.path.isfile(backup_path):
@@ -161,21 +212,23 @@ class FileManager:
                         if os.path.exists(game_path):
                             _clear_readonly(game_path)
                             if not os.access(game_path, os.W_OK):
-                                raise PermissionError(f"Cannot write to {game_path}. Check file permissions.")
-
+                                raise PermissionError(f"Cannot write to {game_path}.")
                         shutil.copy2(backup_path, game_path)
                         restored_files.append(item)
-                        print(f"Restored {item} from backup.")
+                        print(f"Restored original {item} from backup.")
                     except Exception as e:
                         print(f"Error restoring {item}: {e}")
                         raise
 
-            if restored_files:
-                shutil.rmtree(backup_dir)
-                print(f"Backup folder removed. Restored {len(restored_files)} file(s).")
+            # Step 3: Clean up the backup folder
+            shutil.rmtree(backup_dir)
+            print(f"Backup folder removed.")
+
+            if removed_files or restored_files:
+                print(f"Uninstall complete. Removed: {removed_files}, Restored: {restored_files}")
                 return True
             else:
-                print("No files were restored from backup.")
+                print("No files were removed or restored.")
                 return False
 
         except Exception as e:

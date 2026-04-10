@@ -4,6 +4,29 @@ Windows-only executable analyzer for PE files.
 import os
 import pefile
 
+def get_exe_files(game_folder):
+    """
+    Returns a list of all .exe files found in the given folder.
+    Useful for letting the user pick the correct executable when multiple exist.
+    """
+    if not os.path.isdir(game_folder):
+        return []
+    return [f for f in os.listdir(game_folder) if f.lower().endswith(".exe")]
+
+
+def get_best_exe(game_folder):
+    """
+    Attempts to auto-select the best .exe by picking the largest file.
+    Falls back to the first .exe if sizes are equal.
+    Returns the full path or None if no .exe found.
+    """
+    exe_files = get_exe_files(game_folder)
+    if not exe_files:
+        return None
+    best = max(exe_files, key=lambda f: os.path.getsize(os.path.join(game_folder, f)))
+    return os.path.join(game_folder, best)
+
+
 def get_exe_architecture(exe_path):
     """
     Analyzes the PE (Portable Executable) header to determine architecture.
@@ -39,9 +62,6 @@ def detect_directx_version(game_folder):
     for dll, version in dlls.items():
         dll_path = os.path.join(game_folder, dll)
         if os.path.exists(dll_path):
-            # Avoid duplicates
             if version not in found_versions:
                 found_versions.append(version)
     return found_versions if found_versions else ["Unknown"]
-
-

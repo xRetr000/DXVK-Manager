@@ -112,6 +112,7 @@ class DetectionThread(QThread):
     """Thread for analyzing game folder without blocking UI."""
     detected_signal = pyqtSignal(str, str)  # architecture, directx
     log_signal = pyqtSignal(str)
+    exe_picker_signal = pyqtSignal(list)  # emitted when multiple .exe files found
     
     def __init__(self, folder):
         super().__init__()
@@ -164,7 +165,9 @@ class DetectionThread(QThread):
             
             if len(exe_files) > 1:
                 self.log_signal.emit(f"Multiple .exe files found: {len(exe_files)} files")
-                self.log_signal.emit(f"Using {os.path.basename(exe_files[0])} for analysis.")
+                self.log_signal.emit("Please select the main game executable from the list.")
+                self.exe_picker_signal.emit(exe_files)
+                return  # GUI will handle the rest after user picks
 
             if self.isInterruptionRequested():
                 return
@@ -446,6 +449,7 @@ class DXVKManagerGUI:
         # Threads
         self.install_thread = None
         self.detect_thread = None
+        self.current_folder = None
     
     def apply_windows11_theme(self):
         """Apply Windows 11 native theme with system colors."""
@@ -806,6 +810,8 @@ class DXVKManagerGUI:
     
     def analyze_game_folder(self, folder):
         """Analyze the selected game folder."""
+        self.current_folder = folder  # Store for use after exe picker
+
         # Reset detection
         self.architecture_label.setText("Analyzing...")
         self.directx_label.setText("Analyzing...")
@@ -819,12 +825,104 @@ class DXVKManagerGUI:
         self.detect_thread = DetectionThread(folder)
         self.detect_thread.detected_signal.connect(self.on_detection_complete)
         self.detect_thread.log_signal.connect(self.log_message)
+        self.detect_thread.exe_picker_signal.connect(self.show_exe_picker)
         self.detect_thread.start()
     
     def on_detection_complete(self, architecture, directx):
         """Handle detection results."""
         self.architecture_label.setText(architecture)
         self.directx_label.setText(directx)
+
+    def show_exe_picker(self, exe_files):
+        """Show a dialog to let the user pick the correct .exe when multiple are found."""
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QListWidget, QPushButton, QHBoxLayout
+
+        dialog = QDialog(self.window)
+        dialog.setWindowTitle("Select Game Executable")
+        dialog.setModal(True)
+        dialog.setMinimumWidth(420)
+        dialog.setStyleSheet("""
+            QDialog { background-color: #202020; color: #FFFFFF; }
+            QLabel { color: #E0E0E0; }
+            QListWidget {
+                background-color: #1E1E1E;
+                color: #FFFFFF;
+                border: 1px solid #404040;
+                border-radius: 4px;
+                padding: 4px;
+                font-family: 'Consolas', monospace;
+                font-size: 10pt;
+            }
+            QListWidget::item:selected { background-color: #0078D4; }
+            QListWidget::item:hover { background-color: #2A2A2A; }
+            QPushButton {
+                background-color: #0078D4; color: white;
+                border: none; padding: 8px 20px;
+                border-radius: 4px; font-weight: 600;
+            }
+            QPushButton:hover { background-color: #106EBE; }
+            QPushButton#secondary {
+                background-color: #5A5A5A;
+            }
+            QPushButton#secondary:hover { background-color: #6A6A6A; }
+        """)
+
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(12)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        info_label = QLabel("Multiple .exe files found.\nSelect the main game executable:")
+        info_label.setStyleSheet("font-size: 10pt; color: #E0E0E0;")
+        layout.addWidget(info_label)
+
+        list_widget = QListWidget()
+        for exe_path in exe_files:
+            size_kb = os.path.getsize(exe_path) // 1024
+            list_widget.addItem(f"{os.path.basename(exe_path)}  ({size_kb:,} KB)")
+        list_widget.setCurrentRow(0)
+        layout.addWidget(list_widget)
+
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setObjectName("secondary")
+        cancel_btn.clicked.connect(dialog.reject)
+        btn_layout.addWidget(cancel_btn)
+        confirm_btn = QPushButton("Use Selected")
+        confirm_btn.clicked.connect(dialog.accept)
+        btn_layout.addWidget(confirm_btn)
+        layout.addLayout(btn_layout)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            selected_index = list_widget.currentRow()
+            chosen_exe = exe_files[selected_index]
+            self.log_message(f"Selected: {os.path.basename(chosen_exe)}")
+            self.run_detection_with_exe(chosen_exe)
+        else:
+            self.architecture_label.setText("Not detected")
+            self.directx_label.setText("Not detected")
+            self.log_message("Exe selection cancelled.")
+
+    def run_detection_with_exe(self, exe_path):
+        """Run architecture detection on a specific exe the user picked."""
+        try:
+            from exe_analyzer import get_exe_architecture, detect_directx_version
+            arch = get_exe_architecture(exe_path)
+            self.log_message(f"Architecture detected: {arch}")
+
+            folder = os.path.dirname(exe_path)
+            dx_versions = detect_directx_version(folder)
+            if dx_versions and dx_versions[0] != "Unknown":
+                dx_text = ", ".join(dx_versions)
+            else:
+                dx_text = "Not detected"
+            self.log_message(f"DirectX versions detected: {dx_text}")
+
+            self.on_detection_complete(arch, dx_text)
+        except Exception as e:
+            self.log_message(f"Error during analysis: {str(e)}")
+            self.architecture_label.setText("Error")
+            self.directx_label.setText("Error")
 
     def install_dxvk(self):
         """Start DXVK installation with confirmation."""
