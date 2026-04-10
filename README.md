@@ -1,11 +1,11 @@
 # DXVK Manager
-<img width="1392" height="1057" alt="image" src="https://github.com/user-attachments/assets/bce3b584-bbb2-4eef-8377-9ffc18418862" />
 
 
 A Windows tool for automatically downloading and installing DXVK into your game folders.
 
 ![Python](https://img.shields.io/badge/Python-3.7+-blue.svg)
 ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)
+<img width="1392" height="1057" alt="image" src="https://github.com/user-attachments/assets/bce3b584-bbb2-4eef-8377-9ffc18418862" />
 
 ---
 
