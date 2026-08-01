@@ -147,17 +147,7 @@ class DetectionThread(QThread):
                     if f.lower().endswith('.exe'):
                         exe_files.append(os.path.join(root, f))
 
-            # Also check root folder
-            if not exe_files:
-                try:
-                    exe_files = [os.path.join(self.folder, f) 
-                                for f in os.listdir(self.folder) 
-                                if f.lower().endswith('.exe')]
-                except PermissionError:
-                    self.log_signal.emit("Error: Cannot access folder. You may need administrator privileges.")
-                    self.detected_signal.emit("Error", "Error")
-                    return
-            
+
             if not exe_files:
                 self.log_signal.emit("No .exe files found in the selected folder.")
                 self.log_signal.emit("Tip: Make sure you selected the folder containing the game's main executable.")

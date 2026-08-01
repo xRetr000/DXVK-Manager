@@ -6,7 +6,14 @@ from datetime import datetime, timezone
 _MAX_LOG_ENTRIES = 500
 
 class Logger:
-    def __init__(self, log_file="dxvk_manager_log.json"):
+    def __init__(self, log_file=None):
+        if log_file is None:
+            app_data = os.path.join(
+                os.environ.get("LOCALAPPDATA", os.path.expanduser("~")),
+                "DXVK Manager",
+            )
+            os.makedirs(app_data, exist_ok=True)
+            log_file = os.path.join(app_data, "dxvk_manager_log.json")
         self.log_file = log_file
         self._lock = threading.Lock()
         self._ensure_log_file_exists()
