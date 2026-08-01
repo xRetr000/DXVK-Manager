@@ -5,7 +5,8 @@ from contextlib import redirect_stdout, redirect_stderr
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QLineEdit, QTextEdit, QComboBox, QCheckBox,
-    QFileDialog, QMessageBox, QFrame, QScrollArea, QDialog
+    QFileDialog, QMessageBox, QFrame, QScrollArea, QDialog,
+    QTabWidget, QSpinBox, QListWidget
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
 from PyQt6.QtGui import QFont, QPalette, QColor, QIcon
@@ -511,21 +512,45 @@ class DXVKManagerGUI:
         """)
     
     def create_left_panel(self):
-        """Create the left control panel."""
+        """Create the left control panel with tabs."""
         panel = ModernCard()
-        layout = QVBoxLayout(panel)
-        layout.setSpacing(15)
-        layout.setContentsMargins(20, 20, 20, 20)
-        
+        outer_layout = QVBoxLayout(panel)
+        outer_layout.setSpacing(12)
+        outer_layout.setContentsMargins(20, 20, 20, 20)
+
         # Title
         title = QLabel("DXVK Manager")
         title_font = QFont()
         title_font.setPointSize(18)
         title_font.setBold(True)
         title.setFont(title_font)
-        title.setStyleSheet("color: #FFFFFF; margin-bottom: 10px;")
-        layout.addWidget(title)
-        
+        title.setStyleSheet("color: #FFFFFF; margin-bottom: 4px;")
+        outer_layout.addWidget(title)
+
+        # Tab widget
+        self.left_tabs = QTabWidget()
+        self.left_tabs.setStyleSheet("""
+            QTabWidget::pane { border: none; background: transparent; }
+            QTabBar::tab {
+                background: #3A3A3A;
+                color: #B0B0B0;
+                padding: 7px 18px;
+                border-radius: 4px;
+                margin-right: 4px;
+                font-size: 10pt;
+                font-weight: 500;
+            }
+            QTabBar::tab:selected { background: #0078D4; color: #FFFFFF; }
+            QTabBar::tab:hover:!selected { background: #4A4A4A; color: #FFFFFF; }
+        """)
+        outer_layout.addWidget(self.left_tabs)
+
+        install_tab = QWidget()
+        install_tab.setStyleSheet("background: transparent;")
+        layout = QVBoxLayout(install_tab)
+        layout.setSpacing(15)
+        layout.setContentsMargins(0, 12, 0, 0)
+
         # Game folder selection - Make it the primary action
         folder_label = QLabel("1. Select Game Folder")
         folder_label.setStyleSheet("font-weight: 600; font-size: 11pt; color: #E0E0E0;")
@@ -743,9 +768,319 @@ class DXVKManagerGUI:
         
         layout.addLayout(button_layout)
         layout.addStretch()
-        
+
+        self.left_tabs.addTab(install_tab, "Install")
+        self.left_tabs.addTab(self._create_conf_tab(), "Config Editor")
+
         return panel
-    
+
+    def _create_conf_tab(self):
+        """Build the dxvk.conf editor tab with common optimization options."""
+        COMBO_STYLE = """
+            QComboBox {
+                padding: 6px 8px; border: 1px solid #404040; border-radius: 4px;
+                background-color: #1E1E1E; color: #FFFFFF;
+            }
+            QComboBox:hover { border-color: #00A2FF; }
+            QComboBox::drop-down { border: none; background: #2D2D2D; }
+            QComboBox QAbstractItemView {
+                background-color: #2D2D2D; color: #FFFFFF;
+                selection-background-color: #0078D4; border: 1px solid #404040;
+            }"""
+        SPIN_STYLE = """
+            QSpinBox {
+                padding: 6px 8px; border: 1px solid #404040; border-radius: 4px;
+                background-color: #1E1E1E; color: #FFFFFF;
+            }
+            QSpinBox:hover { border-color: #00A2FF; }
+            QSpinBox::up-button, QSpinBox::down-button { background: #2D2D2D; border: none; }"""
+        CHECK_STYLE = """
+            QCheckBox { color: #E0E0E0; spacing: 8px; }
+            QCheckBox::indicator {
+                width: 18px; height: 18px; border: 2px solid #404040;
+                border-radius: 3px; background-color: #1E1E1E;
+            }
+            QCheckBox::indicator:checked { background-color: #00A2FF; border: 2px solid #00A2FF; }
+            QCheckBox::indicator:hover { border-color: #00A2FF; }"""
+        SEC_STYLE  = "color: #E0E0E0; font-weight: 600; font-size: 10pt; margin-top: 4px;"
+        HINT_STYLE = "color: #888888; font-size: 8pt;"
+
+        tab = QWidget()
+        tab.setStyleSheet("background: transparent;")
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+
+        inner = QWidget()
+        inner.setStyleSheet("background: transparent;")
+        layout = QVBoxLayout(inner)
+        layout.setSpacing(12)
+        layout.setContentsMargins(0, 12, 4, 12)
+
+        outer = QVBoxLayout(tab)
+        outer.setContentsMargins(0, 0, 0, 0)
+        scroll.setWidget(inner)
+        outer.addWidget(scroll)
+
+        # Status label
+        self.conf_status = QLabel("No game folder selected.")
+        self.conf_status.setStyleSheet("color: #888888; font-size: 9pt;")
+        self.conf_status.setWordWrap(True)
+        layout.addWidget(self.conf_status)
+
+        # ── HUD ──────────────────────────────
+        layout.addWidget(self._label("HUD Display", SEC_STYLE))
+        self.conf_hud = QComboBox()
+        self.conf_hud.addItems(["Off", "FPS", "Full", "Custom"])
+        self.conf_hud.setStyleSheet(COMBO_STYLE)
+        self.conf_hud.currentTextChanged.connect(self._on_hud_changed)
+        layout.addWidget(self.conf_hud)
+        self.conf_hud_custom = QLineEdit()
+        self.conf_hud_custom.setPlaceholderText("e.g. fps,frametimes,gpuload")
+        self.conf_hud_custom.setStyleSheet(
+            "padding:6px; border:1px solid #404040; border-radius:4px; background:#1E1E1E; color:#FFF;")
+        self.conf_hud_custom.setVisible(False)
+        layout.addWidget(self.conf_hud_custom)
+
+        # ── Async shader compilation ──────────
+        layout.addWidget(self._label("Async Shader Compilation", SEC_STYLE))
+        self.conf_async = QCheckBox("Enable async (reduces stuttering)")
+        self.conf_async.setStyleSheet(CHECK_STYLE)
+        layout.addWidget(self.conf_async)
+        hint = QLabel("Compiles shaders in background. May cause brief visual glitches on first play.")
+        hint.setStyleSheet(HINT_STYLE)
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        # ── Async compiler threads (separate from sync) ──
+        layout.addWidget(self._label("Async Compiler Threads", SEC_STYLE))
+        self.conf_async_threads = QSpinBox()
+        self.conf_async_threads.setRange(0, 32)
+        self.conf_async_threads.setSpecialValueText("Auto")
+        self.conf_async_threads.setStyleSheet(SPIN_STYLE)
+        layout.addWidget(self.conf_async_threads)
+        hint_at = QLabel("Threads dedicated to async shader compilation. 0 = auto.")
+        hint_at.setStyleSheet(HINT_STYLE)
+        layout.addWidget(hint_at)
+
+        # ── Frame rate cap ────────────────────
+        layout.addWidget(self._label("Frame Rate Cap", SEC_STYLE))
+        self.conf_fps = QSpinBox()
+        self.conf_fps.setRange(0, 999)
+        self.conf_fps.setSpecialValueText("Unlimited")
+        self.conf_fps.setSuffix(" fps")
+        self.conf_fps.setStyleSheet(SPIN_STYLE)
+        layout.addWidget(self.conf_fps)
+        hint2 = QLabel("0 = no cap. Useful for reducing power draw / heat on laptops.")
+        hint2.setStyleSheet(HINT_STYLE)
+        hint2.setWordWrap(True)
+        layout.addWidget(hint2)
+
+        # ── Sync compiler threads ─────────────
+        layout.addWidget(self._label("Sync Compiler Threads", SEC_STYLE))
+        self.conf_threads = QSpinBox()
+        self.conf_threads.setRange(0, 32)
+        self.conf_threads.setSpecialValueText("Auto")
+        self.conf_threads.setStyleSheet(SPIN_STYLE)
+        layout.addWidget(self.conf_threads)
+        hint3 = QLabel("Threads used to compile shaders synchronously. 0 = based on CPU cores.")
+        hint3.setStyleSheet(HINT_STYLE)
+        hint3.setWordWrap(True)
+        layout.addWidget(hint3)
+
+        # ── Max device memory (VRAM budget) ───
+        layout.addWidget(self._label("Max Device Memory (VRAM)", SEC_STYLE))
+        self.conf_vram = QSpinBox()
+        self.conf_vram.setRange(0, 65536)
+        self.conf_vram.setSingleStep(512)
+        self.conf_vram.setSpecialValueText("Unlimited")
+        self.conf_vram.setSuffix(" MB")
+        self.conf_vram.setStyleSheet(SPIN_STYLE)
+        layout.addWidget(self.conf_vram)
+        hint_v = QLabel("Caps VRAM DXVK reports to the game. Helps on GPUs with limited VRAM. 0 = unlimited.")
+        hint_v.setStyleSheet(HINT_STYLE)
+        hint_v.setWordWrap(True)
+        layout.addWidget(hint_v)
+
+        # ── Tear-free / VSync ──────────────────
+        layout.addWidget(self._label("Tear-Free (VSync)", SEC_STYLE))
+        self.conf_tearfree = QComboBox()
+        self.conf_tearfree.addItems(["Auto", "On", "Off"])
+        self.conf_tearfree.setStyleSheet(COMBO_STYLE)
+        layout.addWidget(self.conf_tearfree)
+
+        # ── Shader cache ───────────────────────
+        layout.addWidget(self._label("On-Disk Shader Cache", SEC_STYLE))
+        self.conf_shadercache = QCheckBox("Enable shader cache (faster reloads)")
+        self.conf_shadercache.setChecked(True)
+        self.conf_shadercache.setStyleSheet(CHECK_STYLE)
+        layout.addWidget(self.conf_shadercache)
+
+        # ── Log level ─────────────────────────
+        layout.addWidget(self._label("Log Level", SEC_STYLE))
+        self.conf_loglevel = QComboBox()
+        self.conf_loglevel.addItems(["none", "error", "warn", "info", "debug"])
+        self.conf_loglevel.setStyleSheet(COMBO_STYLE)
+        layout.addWidget(self.conf_loglevel)
+
+        layout.addStretch()
+
+        # Buttons
+        btn_row = QHBoxLayout()
+        save_btn = QPushButton("Save Config")
+        save_btn.setStyleSheet("""
+            QPushButton { background:#0078D4; color:white; border:none;
+                padding:9px 20px; border-radius:5px; font-weight:600; }
+            QPushButton:hover { background:#106EBE; }
+            QPushButton:pressed { background:#005A9E; }""")
+        save_btn.clicked.connect(self._save_conf)
+        reset_btn = QPushButton("Reset Defaults")
+        reset_btn.setStyleSheet("""
+            QPushButton { background:#5A5A5A; color:white; border:none;
+                padding:9px 20px; border-radius:5px; font-weight:500; }
+            QPushButton:hover { background:#6A6A6A; }""")
+        reset_btn.clicked.connect(self._reset_conf_defaults)
+        btn_row.addWidget(save_btn)
+        btn_row.addWidget(reset_btn)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+        return tab
+
+    def _label(self, text, style):
+        lbl = QLabel(text)
+        lbl.setStyleSheet(style)
+        return lbl
+
+    def _on_hud_changed(self, value):
+        self.conf_hud_custom.setVisible(value == "Custom")
+
+    def _load_conf(self, folder):
+        """Parse dxvk.conf from the game folder and update UI controls."""
+        conf_path = os.path.join(folder, "dxvk.conf")
+        defaults = {
+            "dxvk.hud": "0",
+            "dxvk.enableAsync": "False",
+            "dxvk.numAsyncThreads": "0",
+            "dxvk.maxFrameRate": "0",
+            "dxvk.numCompilerThreads": "0",
+            "dxvk.maxDeviceMemory": "0",
+            "dxvk.tearFree": "Auto",
+            "dxvk.shaderCache": "True",
+            "dxvk.logLevel": "none",
+        }
+        values = dict(defaults)
+
+        if os.path.exists(conf_path):
+            try:
+                with open(conf_path, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, _, v = line.partition("=")
+                            k, v = k.strip(), v.strip()
+                            if k in values:
+                                values[k] = v
+                self.conf_status.setText(f"Loaded: {conf_path}")
+                self.conf_status.setStyleSheet("color: #4CAF50; font-size: 9pt;")
+            except Exception as e:
+                self.conf_status.setText(f"Error reading config: {e}")
+                self.conf_status.setStyleSheet("color: #E81123; font-size: 9pt;")
+        else:
+            self.conf_status.setText("No dxvk.conf found — will create one on save.")
+            self.conf_status.setStyleSheet("color: #FFB900; font-size: 9pt;")
+
+        # Apply to UI
+        hud_val = values["dxvk.hud"]
+        if hud_val in ("0", ""):
+            self.conf_hud.setCurrentText("Off")
+        elif hud_val == "1":
+            self.conf_hud.setCurrentText("FPS")
+        elif hud_val == "full":
+            self.conf_hud.setCurrentText("Full")
+        else:
+            self.conf_hud.setCurrentText("Custom")
+            self.conf_hud_custom.setText(hud_val)
+
+        self.conf_async.setChecked(values["dxvk.enableAsync"].lower() == "true")
+
+        for spin, key in [
+            (self.conf_async_threads, "dxvk.numAsyncThreads"),
+            (self.conf_fps, "dxvk.maxFrameRate"),
+            (self.conf_threads, "dxvk.numCompilerThreads"),
+            (self.conf_vram, "dxvk.maxDeviceMemory"),
+        ]:
+            try:
+                spin.setValue(int(values[key]))
+            except ValueError:
+                spin.setValue(0)
+
+        tear_val = values["dxvk.tearFree"].capitalize()
+        idx = self.conf_tearfree.findText(tear_val if tear_val in ("On", "Off") else "Auto")
+        self.conf_tearfree.setCurrentIndex(idx if idx >= 0 else 0)
+
+        self.conf_shadercache.setChecked(values["dxvk.shaderCache"].lower() != "false")
+
+        log = values["dxvk.logLevel"]
+        idx = self.conf_loglevel.findText(log)
+        self.conf_loglevel.setCurrentIndex(idx if idx >= 0 else 0)
+
+    def _save_conf(self):
+        """Write dxvk.conf to the current game folder."""
+        folder = self.folder_input.text()
+        if not folder:
+            DarkMessageBox.warning(self.window, "No Folder", "Select a game folder in the Install tab first.")
+            return
+
+        hud_choice = self.conf_hud.currentText()
+        if hud_choice == "Off":
+            hud_val = "0"
+        elif hud_choice == "FPS":
+            hud_val = "1"
+        elif hud_choice == "Full":
+            hud_val = "full"
+        else:
+            hud_val = self.conf_hud_custom.text().strip() or "0"
+
+        lines = [
+            "# dxvk.conf - generated by DXVK Manager",
+            "",
+            f"dxvk.hud = {hud_val}",
+            f"dxvk.enableAsync = {'True' if self.conf_async.isChecked() else 'False'}",
+            f"dxvk.numAsyncThreads = {self.conf_async_threads.value()}",
+            f"dxvk.maxFrameRate = {self.conf_fps.value()}",
+            f"dxvk.numCompilerThreads = {self.conf_threads.value()}",
+            f"dxvk.maxDeviceMemory = {self.conf_vram.value()}",
+            f"dxvk.tearFree = {self.conf_tearfree.currentText()}",
+            f"dxvk.shaderCache = {'True' if self.conf_shadercache.isChecked() else 'False'}",
+            f"dxvk.logLevel = {self.conf_loglevel.currentText()}",
+        ]
+
+        conf_path = os.path.join(folder, "dxvk.conf")
+        try:
+            with open(conf_path, "w") as f:
+                f.write("\n".join(lines) + "\n")
+            self.conf_status.setText(f"Saved: {conf_path}")
+            self.conf_status.setStyleSheet("color: #4CAF50; font-size: 9pt;")
+            self.log_message(f"dxvk.conf saved to {folder}")
+            DarkMessageBox.information(self.window, "Saved", "dxvk.conf saved successfully!")
+        except Exception as e:
+            DarkMessageBox.critical(self.window, "Error", f"Could not save config:\n{e}")
+
+    def _reset_conf_defaults(self):
+        """Reset all conf fields to DXVK defaults."""
+        self.conf_hud.setCurrentText("Off")
+        self.conf_hud_custom.setText("")
+        self.conf_async.setChecked(False)
+        self.conf_async_threads.setValue(0)
+        self.conf_fps.setValue(0)
+        self.conf_threads.setValue(0)
+        self.conf_vram.setValue(0)
+        self.conf_tearfree.setCurrentText("Auto")
+        self.conf_shadercache.setChecked(True)
+        self.conf_loglevel.setCurrentText("none")
+
     def create_right_panel(self):
         """Create the right log panel."""
         panel = ModernCard()
@@ -811,6 +1146,7 @@ class DXVKManagerGUI:
     def analyze_game_folder(self, folder):
         """Analyze the selected game folder."""
         self.current_folder = folder  # Store for use after exe picker
+        self._load_conf(folder)  # Refresh the Config Editor tab for this folder
 
         # Reset detection
         self.architecture_label.setText("Analyzing...")
