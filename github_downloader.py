@@ -3,6 +3,7 @@ import zipfile
 import tarfile
 import io
 import os
+from constants import DLL_MAP
 
 class GithubDownloader:
     def __init__(self, repo_owner='doitsujin', repo_name='dxvk'):
@@ -50,17 +51,7 @@ class GithubDownloader:
         # Determine the correct subfolder based on architecture
         subfolder = 'x64' if arch == '64-bit' else 'x32'
         
-        # Map DirectX version to DXVK DLL names
-        # Must match the map in dxvk_manager.py exactly.
-        # DXVK does not ship d3d10.dll — it uses d3d10core.dll for D3D10 support.
-        dll_map = {
-            'Direct3D 9': ['d3d9.dll', 'dxgi.dll'],
-            'Direct3D 10': ['d3d10core.dll', 'dxgi.dll'],
-            'Direct3D 11': ['d3d11.dll', 'dxgi.dll'],
-            'Unknown': ['d3d9.dll', 'd3d10core.dll', 'd3d11.dll', 'dxgi.dll'],
-        }
-        
-        dlls_to_extract = dll_map.get(directx_version, [])
+        dlls_to_extract = DLL_MAP.get(directx_version, [])
         
         # Extract based on file format
         if file_format == 'zip':

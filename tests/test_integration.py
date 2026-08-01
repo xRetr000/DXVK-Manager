@@ -54,7 +54,7 @@ def test_integration():
                 'zipball_url': 'https://fake-url.com/dxvk.zip'
             }
 
-            def mock_extract(download_url, extract_path, arch, directx_version):
+            def mock_extract(download_url, extract_path, arch, directx_version, file_format='tar.gz'):
                 for dll in ['d3d11.dll', 'dxgi.dll']:
                     with open(os.path.join(extract_path, dll), "w") as f:
                         f.write(f"fake DXVK {dll} content")

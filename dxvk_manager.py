@@ -1,6 +1,7 @@
 import os
 import tempfile
 from github_downloader import GithubDownloader
+from constants import DLL_MAP
 from file_manager import FileManager
 from logger import Logger
 
@@ -59,15 +60,7 @@ class DXVKManager:
                 self.downloader.download_and_extract_dxvk(download_url, temp_dir, architecture, directx_version, file_format)
                 
                 # Step 4: Determine which DLLs to install
-                # Note: DXVK doesn't include d3d10.dll (it uses d3d10core.dll for D3D10.1 support)
-                dll_map = {
-                    'Direct3D 9': ['d3d9.dll', 'dxgi.dll'],
-                    'Direct3D 10': ['d3d10core.dll', 'dxgi.dll'],  # DXVK uses d3d10core.dll, not d3d10.dll
-                    'Direct3D 11': ['d3d11.dll', 'dxgi.dll'],
-                    'Unknown': ['d3d9.dll', 'd3d11.dll', 'dxgi.dll']  # Don't include d3d10.dll as it doesn't exist in DXVK
-                }
-                
-                dlls_to_install = dll_map.get(directx_version, dll_map['Unknown'])
+                dlls_to_install = DLL_MAP.get(directx_version, DLL_MAP['Unknown'])
                 
                 # Verify DLLs were extracted - only check for DLLs that actually exist
                 missing_dlls = []
