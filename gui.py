@@ -802,16 +802,36 @@ class DXVKManagerGUI:
             grid.addWidget(hint)
 
     def _create_conf_tab(self):
-        """Build the dxvk.conf editor tab — compact modern grid, no scrolling."""
+        """Build the dxvk.conf editor tab — compact modern grid, scrollable."""
         COMBO_STYLE = self._COMBO_STYLE
         SPIN_STYLE = self._SPIN_STYLE
         CHECK_STYLE = self._CHECK_STYLE
+
+        outer_tab = QWidget()
+        outer_tab.setStyleSheet("background: transparent;")
+        outer_layout = QVBoxLayout(outer_tab)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("""
+            QScrollArea { border: none; background: transparent; }
+            QScrollBar:vertical { background: #1A1A1A; width: 10px; border-radius: 5px; }
+            QScrollBar::handle:vertical { background: #3A3A3A; border-radius: 5px; min-height: 24px; }
+            QScrollBar::handle:vertical:hover { background: #4A4A4A; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+        """)
 
         tab = QWidget()
         tab.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(tab)
         layout.setSpacing(10)
-        layout.setContentsMargins(0, 10, 0, 0)
+        layout.setContentsMargins(0, 10, 6, 10)
+
+        scroll.setWidget(tab)
+        outer_layout.addWidget(scroll)
 
         # Status pill
         self.conf_status = QLabel("No game folder selected.")
@@ -921,9 +941,7 @@ class DXVKManagerGUI:
         btn_row.addStretch()
         layout.addLayout(btn_row)
 
-        return tab
-
-    def _label(self, text, style):
+        return outer_tab
         lbl = QLabel(text)
         lbl.setStyleSheet(style)
         return lbl
