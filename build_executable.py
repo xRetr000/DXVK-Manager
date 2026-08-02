@@ -72,9 +72,13 @@ def build_executable():
         "dxvk_manager.py"
     ]
     
-    # Add icon if it exists
+    # Add icon if it exists — both embed it in the .exe AND bundle it as a
+    # data file so the running app can find it via _resource_path() (sys._MEIPASS)
     if os.path.exists("icon.ico"):
         cmd.extend(["--icon", "icon.ico"])
+        cmd.extend(["--add-data", "icon.ico;."])
+    else:
+        print("WARNING: icon.ico not found in project root — app will use default icon.")
     
     try:
         subprocess.check_call(cmd)
@@ -164,4 +168,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
