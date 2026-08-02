@@ -147,7 +147,17 @@ class DetectionThread(QThread):
                     if f.lower().endswith('.exe'):
                         exe_files.append(os.path.join(root, f))
 
-
+            # Also check root folder
+            if not exe_files:
+                try:
+                    exe_files = [os.path.join(self.folder, f) 
+                                for f in os.listdir(self.folder) 
+                                if f.lower().endswith('.exe')]
+                except PermissionError:
+                    self.log_signal.emit("Error: Cannot access folder. You may need administrator privileges.")
+                    self.detected_signal.emit("Error", "Error")
+                    return
+            
             if not exe_files:
                 self.log_signal.emit("No .exe files found in the selected folder.")
                 self.log_signal.emit("Tip: Make sure you selected the folder containing the game's main executable.")
@@ -403,15 +413,30 @@ class DarkMessageBox(QDialog):
 class DXVKManagerGUI:
     def __init__(self, manager):
         self.manager = manager
+
+        # Windows groups taskbar icons by AppUserModelID. Without setting a unique
+        # one, Windows falls back to the Python interpreter's icon in the taskbar
+        # even though the window icon and .exe icon are set correctly.
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                app_id = "xRetr000.DXVKManager.GUI.1"
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+            except Exception:
+                pass
+
         self.app = QApplication.instance()
         if self.app is None:
             self.app = QApplication(sys.argv)
         
         # Use Windows native style for Windows 11 look
         self.app.setStyle('windowsvista')  # Windows 11 compatible native style
-        
+        icon = QIcon(self._resource_path("icon.ico"))
+        self.app.setWindowIcon(icon)
+
         self.window = QMainWindow()
         self.window.setWindowTitle("DXVK Manager")
+        self.window.setWindowIcon(icon)
         self.window.setMinimumSize(900, 650)
         self.window.resize(1000, 700)
         
@@ -501,6 +526,12 @@ class DXVKManagerGUI:
             }
         """)
     
+    @staticmethod
+    def _resource_path(relative_path):
+        """Get absolute path to a resource, works for dev and for PyInstaller .exe."""
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(base_path, relative_path)
+
     def create_left_panel(self):
         """Create the left control panel with tabs."""
         panel = ModernCard()
