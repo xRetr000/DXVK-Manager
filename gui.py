@@ -1,6 +1,8 @@
 import sys
 import os
 import io
+import webbrowser
+import urllib.parse
 from contextlib import redirect_stdout, redirect_stderr
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -621,6 +623,33 @@ class DXVKManagerGUI:
         browse_btn.clicked.connect(self.browse_game_folder)
         folder_layout.addWidget(browse_btn)
         layout.addLayout(folder_layout)
+
+        wiki_btn = QPushButton("🌐  View on PCGamingWiki")
+        wiki_btn.setToolTip("Search PCGamingWiki for this game's compatibility info")
+        wiki_btn.setEnabled(False)
+        wiki_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2D2D2D;
+                color: #B0B0B0;
+                border: 1px solid #404040;
+                padding: 7px 14px;
+                border-radius: 4px;
+                font-weight: 500;
+                font-size: 9pt;
+                text-align: left;
+            }
+            QPushButton:hover:enabled {
+                background-color: #3A3A3A;
+                color: #00A2FF;
+                border: 1px solid #00A2FF;
+            }
+            QPushButton:disabled {
+                color: #5A5A5A;
+            }
+        """)
+        wiki_btn.clicked.connect(self._open_pcgamingwiki)
+        self.wiki_btn = wiki_btn
+        layout.addWidget(wiki_btn)
         
         # Detection results card
         detection_card = ModernCard()
@@ -796,171 +825,173 @@ class DXVKManagerGUI:
         return panel
 
     def _create_conf_tab(self):
-        """Build the dxvk.conf editor tab with common optimization options."""
+        """Build the dxvk.conf editor tab — compact modern grid, no scrolling."""
         COMBO_STYLE = """
             QComboBox {
-                padding: 6px 8px; border: 1px solid #404040; border-radius: 4px;
-                background-color: #1E1E1E; color: #FFFFFF;
+                padding: 5px 8px; border: 1px solid #3A3A3A; border-radius: 5px;
+                background-color: #1A1A1A; color: #FFFFFF; min-height: 22px;
             }
             QComboBox:hover { border-color: #00A2FF; }
-            QComboBox::drop-down { border: none; background: #2D2D2D; }
+            QComboBox::drop-down { border: none; background: transparent; width: 22px; }
             QComboBox QAbstractItemView {
-                background-color: #2D2D2D; color: #FFFFFF;
-                selection-background-color: #0078D4; border: 1px solid #404040;
+                background-color: #242424; color: #FFFFFF;
+                selection-background-color: #0078D4; border: 1px solid #3A3A3A;
+                border-radius: 4px;
             }"""
         SPIN_STYLE = """
             QSpinBox {
-                padding: 6px 8px; border: 1px solid #404040; border-radius: 4px;
-                background-color: #1E1E1E; color: #FFFFFF;
+                padding: 5px 8px; border: 1px solid #3A3A3A; border-radius: 5px;
+                background-color: #1A1A1A; color: #FFFFFF; min-height: 22px;
             }
             QSpinBox:hover { border-color: #00A2FF; }
-            QSpinBox::up-button, QSpinBox::down-button { background: #2D2D2D; border: none; }"""
+            QSpinBox::up-button, QSpinBox::down-button { background: transparent; border: none; width: 16px; }"""
         CHECK_STYLE = """
-            QCheckBox { color: #E0E0E0; spacing: 8px; }
+            QCheckBox { color: #E0E0E0; spacing: 8px; font-size: 9.5pt; }
             QCheckBox::indicator {
-                width: 18px; height: 18px; border: 2px solid #404040;
-                border-radius: 3px; background-color: #1E1E1E;
+                width: 16px; height: 16px; border: 2px solid #3A3A3A;
+                border-radius: 4px; background-color: #1A1A1A;
             }
             QCheckBox::indicator:checked { background-color: #00A2FF; border: 2px solid #00A2FF; }
             QCheckBox::indicator:hover { border-color: #00A2FF; }"""
-        SEC_STYLE  = "color: #E0E0E0; font-weight: 600; font-size: 10pt; margin-top: 4px;"
-        HINT_STYLE = "color: #888888; font-size: 8pt;"
+        ROW_LABEL_STYLE = "color: #C8C8C8; font-size: 9.5pt; font-weight: 500;"
+        GROUP_TITLE_STYLE = "color: #00A2FF; font-size: 8.5pt; font-weight: 700; letter-spacing: 0.5px;"
 
         tab = QWidget()
         tab.setStyleSheet("background: transparent;")
+        layout = QVBoxLayout(tab)
+        layout.setSpacing(10)
+        layout.setContentsMargins(0, 10, 0, 0)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
-
-        inner = QWidget()
-        inner.setStyleSheet("background: transparent;")
-        layout = QVBoxLayout(inner)
-        layout.setSpacing(12)
-        layout.setContentsMargins(0, 12, 4, 12)
-
-        outer = QVBoxLayout(tab)
-        outer.setContentsMargins(0, 0, 0, 0)
-        scroll.setWidget(inner)
-        outer.addWidget(scroll)
-
-        # Status label
+        # Status pill
         self.conf_status = QLabel("No game folder selected.")
-        self.conf_status.setStyleSheet("color: #888888; font-size: 9pt;")
+        self.conf_status.setStyleSheet("""
+            color: #888888; font-size: 8.5pt; padding: 6px 10px;
+            background-color: #1A1A1A; border-radius: 5px;
+        """)
         self.conf_status.setWordWrap(True)
         layout.addWidget(self.conf_status)
 
-        # ── HUD ──────────────────────────────
-        layout.addWidget(self._label("HUD Display", SEC_STYLE))
+        def make_group(title):
+            """A flat card-style section container with a small header."""
+            card = QFrame()
+            card.setStyleSheet("""
+                QFrame { background-color: #1E1E1E; border: 1px solid #2E2E2E; border-radius: 8px; }
+            """)
+            card_layout = QVBoxLayout(card)
+            card_layout.setContentsMargins(12, 10, 12, 10)
+            card_layout.setSpacing(6)
+            header = QLabel(title)
+            header.setStyleSheet(GROUP_TITLE_STYLE)
+            card_layout.addWidget(header)
+            grid = QVBoxLayout()
+            grid.setSpacing(8)
+            card_layout.addLayout(grid)
+            return card, grid
+
+        def row(grid, label_text, widget, hint_text=None):
+            """A single compact label+control row, optional one-line hint."""
+            r = QHBoxLayout()
+            r.setSpacing(8)
+            lbl = QLabel(label_text)
+            lbl.setStyleSheet(ROW_LABEL_STYLE)
+            lbl.setMinimumWidth(108)
+            lbl.setWordWrap(True)
+            r.addWidget(lbl, 0)
+            r.addWidget(widget, 1)
+            grid.addLayout(r)
+            if hint_text:
+                hint = QLabel(hint_text)
+                hint.setStyleSheet("color: #6E6E6E; font-size: 7.5pt;")
+                hint.setWordWrap(True)
+                grid.addWidget(hint)
+
+        # ── Rendering group: HUD + Tear-Free ─────────────────
+        card1, g1 = make_group("RENDERING")
         self.conf_hud = QComboBox()
         self.conf_hud.addItems(["Off", "FPS", "Full", "Custom"])
         self.conf_hud.setStyleSheet(COMBO_STYLE)
         self.conf_hud.currentTextChanged.connect(self._on_hud_changed)
-        layout.addWidget(self.conf_hud)
+        row(g1, "HUD Display", self.conf_hud)
         self.conf_hud_custom = QLineEdit()
         self.conf_hud_custom.setPlaceholderText("e.g. fps,frametimes,gpuload")
         self.conf_hud_custom.setStyleSheet(
-            "padding:6px; border:1px solid #404040; border-radius:4px; background:#1E1E1E; color:#FFF;")
+            "padding:5px 8px; border:1px solid #3A3A3A; border-radius:5px; background:#1A1A1A; color:#FFF;")
         self.conf_hud_custom.setVisible(False)
-        layout.addWidget(self.conf_hud_custom)
+        g1.addWidget(self.conf_hud_custom)
 
-        # ── Async shader compilation ──────────
-        layout.addWidget(self._label("Async Shader Compilation", SEC_STYLE))
-        self.conf_async = QCheckBox("Enable async (reduces stuttering)")
+        self.conf_tearfree = QComboBox()
+        self.conf_tearfree.addItems(["Auto", "On", "Off"])
+        self.conf_tearfree.setStyleSheet(COMBO_STYLE)
+        row(g1, "Tear-Free (VSync)", self.conf_tearfree)
+        layout.addWidget(card1)
+
+        # ── Performance group ─────────────────────────────────
+        card2, g2 = make_group("PERFORMANCE")
+        self.conf_async = QCheckBox("Enable async shader compilation")
         self.conf_async.setStyleSheet(CHECK_STYLE)
-        layout.addWidget(self.conf_async)
-        hint = QLabel("Compiles shaders in background. May cause brief visual glitches on first play.")
-        hint.setStyleSheet(HINT_STYLE)
-        hint.setWordWrap(True)
-        layout.addWidget(hint)
+        g2.addWidget(self.conf_async)
 
-        # ── Async compiler threads (separate from sync) ──
-        layout.addWidget(self._label("Async Compiler Threads", SEC_STYLE))
         self.conf_async_threads = QSpinBox()
         self.conf_async_threads.setRange(0, 32)
         self.conf_async_threads.setSpecialValueText("Auto")
         self.conf_async_threads.setStyleSheet(SPIN_STYLE)
-        layout.addWidget(self.conf_async_threads)
-        hint_at = QLabel("Threads dedicated to async shader compilation. 0 = auto.")
-        hint_at.setStyleSheet(HINT_STYLE)
-        layout.addWidget(hint_at)
+        row(g2, "Async Threads", self.conf_async_threads)
 
-        # ── Frame rate cap ────────────────────
-        layout.addWidget(self._label("Frame Rate Cap", SEC_STYLE))
+        self.conf_threads = QSpinBox()
+        self.conf_threads.setRange(0, 32)
+        self.conf_threads.setSpecialValueText("Auto")
+        self.conf_threads.setStyleSheet(SPIN_STYLE)
+        row(g2, "Sync Threads", self.conf_threads)
+
         self.conf_fps = QSpinBox()
         self.conf_fps.setRange(0, 999)
         self.conf_fps.setSpecialValueText("Unlimited")
         self.conf_fps.setSuffix(" fps")
         self.conf_fps.setStyleSheet(SPIN_STYLE)
-        layout.addWidget(self.conf_fps)
-        hint2 = QLabel("0 = no cap. Useful for reducing power draw / heat on laptops.")
-        hint2.setStyleSheet(HINT_STYLE)
-        hint2.setWordWrap(True)
-        layout.addWidget(hint2)
+        row(g2, "Frame Rate Cap", self.conf_fps)
 
-        # ── Sync compiler threads ─────────────
-        layout.addWidget(self._label("Sync Compiler Threads", SEC_STYLE))
-        self.conf_threads = QSpinBox()
-        self.conf_threads.setRange(0, 32)
-        self.conf_threads.setSpecialValueText("Auto")
-        self.conf_threads.setStyleSheet(SPIN_STYLE)
-        layout.addWidget(self.conf_threads)
-        hint3 = QLabel("Threads used to compile shaders synchronously. 0 = based on CPU cores.")
-        hint3.setStyleSheet(HINT_STYLE)
-        hint3.setWordWrap(True)
-        layout.addWidget(hint3)
+        self.conf_shadercache = QCheckBox("Enable on-disk shader cache")
+        self.conf_shadercache.setChecked(True)
+        self.conf_shadercache.setStyleSheet(CHECK_STYLE)
+        g2.addWidget(self.conf_shadercache)
+        layout.addWidget(card2)
 
-        # ── Max device memory (VRAM budget) ───
-        layout.addWidget(self._label("Max Device Memory (VRAM)", SEC_STYLE))
+        # ── Memory group ───────────────────────────────────────
+        card3, g3 = make_group("MEMORY")
         self.conf_vram = QSpinBox()
         self.conf_vram.setRange(0, 65536)
         self.conf_vram.setSingleStep(512)
         self.conf_vram.setSpecialValueText("Unlimited")
         self.conf_vram.setSuffix(" MB")
         self.conf_vram.setStyleSheet(SPIN_STYLE)
-        layout.addWidget(self.conf_vram)
-        hint_v = QLabel("Caps VRAM DXVK reports to the game. Helps on GPUs with limited VRAM. 0 = unlimited.")
-        hint_v.setStyleSheet(HINT_STYLE)
-        hint_v.setWordWrap(True)
-        layout.addWidget(hint_v)
+        row(g3, "Max VRAM", self.conf_vram, "Caps reported VRAM — helps GPUs with limited memory.")
+        layout.addWidget(card3)
 
-        # ── Tear-free / VSync ──────────────────
-        layout.addWidget(self._label("Tear-Free (VSync)", SEC_STYLE))
-        self.conf_tearfree = QComboBox()
-        self.conf_tearfree.addItems(["Auto", "On", "Off"])
-        self.conf_tearfree.setStyleSheet(COMBO_STYLE)
-        layout.addWidget(self.conf_tearfree)
-
-        # ── Shader cache ───────────────────────
-        layout.addWidget(self._label("On-Disk Shader Cache", SEC_STYLE))
-        self.conf_shadercache = QCheckBox("Enable shader cache (faster reloads)")
-        self.conf_shadercache.setChecked(True)
-        self.conf_shadercache.setStyleSheet(CHECK_STYLE)
-        layout.addWidget(self.conf_shadercache)
-
-        # ── Log level ─────────────────────────
-        layout.addWidget(self._label("Log Level", SEC_STYLE))
+        # ── Debug group ────────────────────────────────────────
+        card4, g4 = make_group("DEBUG")
         self.conf_loglevel = QComboBox()
         self.conf_loglevel.addItems(["none", "error", "warn", "info", "debug"])
         self.conf_loglevel.setStyleSheet(COMBO_STYLE)
-        layout.addWidget(self.conf_loglevel)
+        row(g4, "Log Level", self.conf_loglevel)
+        layout.addWidget(card4)
 
         layout.addStretch()
 
         # Buttons
         btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
         save_btn = QPushButton("Save Config")
         save_btn.setStyleSheet("""
             QPushButton { background:#0078D4; color:white; border:none;
-                padding:9px 20px; border-radius:5px; font-weight:600; }
+                padding:9px 22px; border-radius:6px; font-weight:600; font-size:9.5pt; }
             QPushButton:hover { background:#106EBE; }
             QPushButton:pressed { background:#005A9E; }""")
         save_btn.clicked.connect(self._save_conf)
-        reset_btn = QPushButton("Reset Defaults")
+        reset_btn = QPushButton("Reset")
         reset_btn.setStyleSheet("""
-            QPushButton { background:#5A5A5A; color:white; border:none;
-                padding:9px 20px; border-radius:5px; font-weight:500; }
-            QPushButton:hover { background:#6A6A6A; }""")
+            QPushButton { background:#2D2D2D; color:#C8C8C8; border:1px solid #3A3A3A;
+                padding:9px 18px; border-radius:6px; font-weight:500; font-size:9.5pt; }
+            QPushButton:hover { background:#3A3A3A; color:#FFF; }""")
         reset_btn.clicked.connect(self._reset_conf_defaults)
         btn_row.addWidget(save_btn)
         btn_row.addWidget(reset_btn)
@@ -1102,6 +1133,34 @@ class DXVKManagerGUI:
         self.conf_shadercache.setChecked(True)
         self.conf_loglevel.setCurrentText("none")
 
+    def _guess_game_name(self, folder):
+        """Turn a folder path into a readable guessed game name."""
+        name = os.path.basename(os.path.normpath(folder))
+        # Replace separators commonly found in folder names with spaces
+        for ch in ["_", "-", "."]:
+            name = name.replace(ch, " ")
+        # Collapse extra whitespace
+        name = " ".join(name.split())
+        return name
+
+    def _update_wiki_button(self, folder):
+        """Enable the PCGamingWiki button and label it with the guessed game name."""
+        game_name = self._guess_game_name(folder)
+        self._wiki_game_name = game_name
+        self.wiki_btn.setEnabled(True)
+        display_name = game_name if len(game_name) <= 28 else game_name[:25] + "..."
+        self.wiki_btn.setText(f"🌐  View \"{display_name}\" on PCGamingWiki")
+
+    def _open_pcgamingwiki(self):
+        """Open PCGamingWiki search for the currently detected game name."""
+        game_name = getattr(self, "_wiki_game_name", None)
+        if not game_name:
+            return
+        query = urllib.parse.quote_plus(game_name)
+        url = f"https://www.pcgamingwiki.com/w/index.php?search={query}"
+        webbrowser.open(url)
+        self.log_message(f"Opened PCGamingWiki search for: {game_name}")
+
     def create_right_panel(self):
         """Create the right log panel."""
         panel = ModernCard()
@@ -1168,6 +1227,7 @@ class DXVKManagerGUI:
         """Analyze the selected game folder."""
         self.current_folder = folder  # Store for use after exe picker
         self._load_conf(folder)  # Refresh the Config Editor tab for this folder
+        self._update_wiki_button(folder)
 
         # Reset detection
         self.architecture_label.setText("Analyzing...")
