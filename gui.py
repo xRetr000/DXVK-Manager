@@ -574,248 +574,158 @@ class DXVKManagerGUI:
         layout.setSpacing(15)
         layout.setContentsMargins(0, 12, 0, 0)
 
-        # Game folder selection - Make it the primary action
-        folder_label = QLabel("1. Select Game Folder")
-        folder_label.setStyleSheet("font-weight: 600; font-size: 11pt; color: #E0E0E0;")
-        layout.addWidget(folder_label)
-        
-        folder_hint = QLabel("Choose the folder containing your game's .exe file")
-        folder_hint.setStyleSheet("color: #999999; font-size: 9pt;")
-        layout.addWidget(folder_hint)
-        
-        folder_layout = QHBoxLayout()
+        # Use the shared card/row helpers so Install matches Config Editor's look
+        make_group = self._make_group
+        row = self._add_row
+        COMBO_STYLE = self._COMBO_STYLE
+        CHECK_STYLE = self._CHECK_STYLE
+
+        layout.setSpacing(10)
+
+        # ── Game folder card ─────────────────────────────────
+        card_folder, g_folder = make_group("GAME FOLDER")
+
+        folder_row = QHBoxLayout()
+        folder_row.setSpacing(8)
         self.folder_input = QLineEdit()
         self.folder_input.setReadOnly(True)
         self.folder_input.setPlaceholderText("Click Browse to select your game folder...")
         self.folder_input.setStyleSheet("""
             QLineEdit {
-                padding: 8px;
-                border: 1px solid #404040;
-                border-radius: 4px;
-                background-color: #1E1E1E;
-                color: #FFFFFF;
+                padding: 6px 8px; border: 1px solid #3A3A3A; border-radius: 5px;
+                background-color: #1A1A1A; color: #FFFFFF; min-height: 22px;
             }
-            QLineEdit:focus {
-                border: 1px solid #00A2FF;
-            }
+            QLineEdit:focus { border: 1px solid #00A2FF; }
         """)
-        folder_layout.addWidget(self.folder_input)
-        
+        folder_row.addWidget(self.folder_input, 1)
+
         browse_btn = QPushButton("Browse...")
         browse_btn.setToolTip("Select the folder where your game is installed")
         browse_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0078D4;
-                color: white;
-                border: none;
-                padding: 8px 20px;
-                border-radius: 4px;
-                font-weight: 600;
-                font-size: 10pt;
+                background-color: #0078D4; color: white; border: none;
+                padding: 7px 18px; border-radius: 5px; font-weight: 600; font-size: 9.5pt;
+                min-height: 22px;
             }
-            QPushButton:hover {
-                background-color: #106EBE;
-            }
-            QPushButton:pressed {
-                background-color: #005A9E;
-            }
+            QPushButton:hover { background-color: #106EBE; }
+            QPushButton:pressed { background-color: #005A9E; }
         """)
         browse_btn.clicked.connect(self.browse_game_folder)
-        folder_layout.addWidget(browse_btn)
-        layout.addLayout(folder_layout)
+        folder_row.addWidget(browse_btn, 0)
+        g_folder.addLayout(folder_row)
 
+        # PCGamingWiki button — made prominent with brand-ish teal accent + icon
         wiki_btn = QPushButton("🌐  View on PCGamingWiki")
-        wiki_btn.setToolTip("Search PCGamingWiki for this game's compatibility info")
+        wiki_btn.setToolTip("Search PCGamingWiki for this game's compatibility info, fixes, and tweaks")
         wiki_btn.setEnabled(False)
+        wiki_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         wiki_btn.setStyleSheet("""
             QPushButton {
-                background-color: #2D2D2D;
-                color: #B0B0B0;
-                border: 1px solid #404040;
-                padding: 7px 14px;
-                border-radius: 4px;
-                font-weight: 500;
-                font-size: 9pt;
+                background-color: #144D3A;
+                color: #4DE8B0;
+                border: 1px solid #1E8A5F;
+                padding: 8px 14px;
+                border-radius: 5px;
+                font-weight: 700;
+                font-size: 9.5pt;
                 text-align: left;
             }
             QPushButton:hover:enabled {
-                background-color: #3A3A3A;
-                color: #00A2FF;
-                border: 1px solid #00A2FF;
+                background-color: #1B6B4D;
+                color: #6DFFCB;
+                border: 1px solid #2FE49A;
+            }
+            QPushButton:pressed:enabled {
+                background-color: #0F3A2B;
             }
             QPushButton:disabled {
-                color: #5A5A5A;
+                background-color: #1E1E1E;
+                color: #4A4A4A;
+                border: 1px solid #2E2E2E;
             }
         """)
         wiki_btn.clicked.connect(self._open_pcgamingwiki)
         self.wiki_btn = wiki_btn
-        layout.addWidget(wiki_btn)
-        
-        # Detection results card
-        detection_card = ModernCard()
-        detection_layout = QVBoxLayout(detection_card)
-        detection_layout.setSpacing(10)
-        detection_layout.setContentsMargins(15, 15, 15, 15)
-        
-        detection_title = QLabel("2. Detection Results")
-        detection_title.setStyleSheet("font-weight: 600; color: #E0E0E0; font-size: 11pt;")
-        detection_layout.addWidget(detection_title)
-        
-        # Architecture
-        arch_layout = QHBoxLayout()
-        arch_label = QLabel("Architecture:")
-        arch_label.setStyleSheet("color: #B0B0B0;")
-        arch_layout.addWidget(arch_label)
+        g_folder.addWidget(wiki_btn)
+        layout.addWidget(card_folder)
+
+        # ── Detection card ────────────────────────────────────
+        card_detect, g_detect = make_group("DETECTION")
+
         self.architecture_label = QLabel("Not detected")
         self.architecture_label.setStyleSheet("""
             QLabel {
-                color: #00A2FF;
-                font-weight: 600;
-                padding: 4px 8px;
-                background-color: #1A3A4D;
-                border-radius: 4px;
+                color: #00A2FF; font-weight: 600; padding: 4px 10px;
+                background-color: #1A3A4D; border-radius: 5px; min-height: 18px;
             }
         """)
-        arch_layout.addWidget(self.architecture_label)
-        arch_layout.addStretch()
-        detection_layout.addLayout(arch_layout)
-        
-        # DirectX version
-        dx_layout = QHBoxLayout()
-        dx_label = QLabel("DirectX Version:")
-        dx_label.setStyleSheet("color: #B0B0B0;")
-        dx_layout.addWidget(dx_label)
+        row(g_detect, "Architecture", self.architecture_label)
+
         self.directx_label = QLabel("Not detected")
         self.directx_label.setStyleSheet("""
             QLabel {
-                color: #00A2FF;
-                font-weight: 600;
-                padding: 4px 8px;
-                background-color: #1A3A4D;
-                border-radius: 4px;
+                color: #00A2FF; font-weight: 600; padding: 4px 10px;
+                background-color: #1A3A4D; border-radius: 5px; min-height: 18px;
             }
         """)
-        dx_layout.addWidget(self.directx_label)
-        dx_layout.addStretch()
-        detection_layout.addLayout(dx_layout)
-        
-        layout.addWidget(detection_card)
-        
-        # DirectX override
-        override_label = QLabel("3. DirectX Version (if auto-detect fails):")
-        override_label.setStyleSheet("font-weight: 600; color: #E0E0E0; font-size: 10pt;")
-        layout.addWidget(override_label)
-        
+        row(g_detect, "DirectX Version", self.directx_label)
+
         self.directx_combo = QComboBox()
         self.directx_combo.addItems(["Auto-detect", "Direct3D 9", "Direct3D 10", "Direct3D 11"])
         self.directx_combo.setToolTip("Manually select DirectX version if auto-detection fails")
-        self.directx_combo.setStyleSheet("""
-            QComboBox {
-                padding: 8px;
-                border: 1px solid #404040;
-                border-radius: 4px;
-                background-color: #1E1E1E;
-                color: #FFFFFF;
-            }
-            QComboBox:hover {
-                border-color: #00A2FF;
-            }
-            QComboBox::drop-down {
-                border: none;
-                background-color: #2D2D2D;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #2D2D2D;
-                color: #FFFFFF;
-                selection-background-color: #00A2FF;
-                border: 1px solid #404040;
-            }
-        """)
-        layout.addWidget(self.directx_combo)
-        
-        # Backup option - Always enabled for safety
-        self.backup_checkbox = QCheckBox("Create backup before installing (Recommended)")
+        self.directx_combo.setStyleSheet(COMBO_STYLE)
+        row(g_detect, "Override", self.directx_combo, "Use if auto-detection picks the wrong version.")
+        layout.addWidget(card_detect)
+
+        # ── Safety card ───────────────────────────────────────
+        card_safety, g_safety = make_group("SAFETY")
+        backup_row = QHBoxLayout()
+        backup_row.setSpacing(6)
+        self.backup_checkbox = QCheckBox("Create backup before installing")
         self.backup_checkbox.setChecked(True)
-        self.backup_checkbox.setToolTip("Always creates a backup so you can restore original files if needed")
-        self.backup_checkbox.setEnabled(False)  # Always enabled - can't disable for safety
-        self.backup_checkbox.setStyleSheet("""
-            QCheckBox {
-                color: #E0E0E0;
-                spacing: 8px;
-            }
-            QCheckBox::indicator {
-                width: 18px;
-                height: 18px;
-                border: 2px solid #404040;
-                border-radius: 3px;
-                background-color: #1E1E1E;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #00A2FF;
-                border: 2px solid #00A2FF;
-            }
-            QCheckBox::indicator:hover {
-                border-color: #00A2FF;
-            }
-        """)
-        layout.addWidget(self.backup_checkbox)
-        
-        # Action buttons
+        self.backup_checkbox.setEnabled(False)  # Locked on — always backs up for safety
+        self.backup_checkbox.setStyleSheet(CHECK_STYLE)
+        backup_row.addWidget(self.backup_checkbox)
+        lock_lbl = QLabel("🔒 Always on")
+        lock_lbl.setStyleSheet("color: #6E9E7E; font-size: 8pt; font-weight: 600;")
+        lock_lbl.setToolTip("Backup can't be disabled — this keeps your original DLLs safe to restore anytime.")
+        backup_row.addWidget(lock_lbl)
+        backup_row.addStretch()
+        g_safety.addLayout(backup_row)
+        layout.addWidget(card_safety)
+
+        # ── Action buttons ────────────────────────────────────
         button_layout = QVBoxLayout()
-        button_layout.setSpacing(10)
-        
-        self.install_btn = QPushButton("4. Install DXVK")
+        button_layout.setSpacing(8)
+
+        self.install_btn = QPushButton("Install DXVK")
         self.install_btn.setToolTip("Downloads and installs DXVK DLLs to your game folder")
         self.install_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0078D4;
-                color: white;
-                border: none;
-                padding: 14px;
-                border-radius: 6px;
-                font-weight: 600;
-                font-size: 12pt;
+                background-color: #0078D4; color: white; border: none;
+                padding: 12px; border-radius: 6px; font-weight: 600; font-size: 11pt;
             }
-            QPushButton:hover {
-                background-color: #106EBE;
-            }
-            QPushButton:pressed {
-                background-color: #005A9E;
-            }
-            QPushButton:disabled {
-                background-color: #404040;
-                color: #808080;
-            }
+            QPushButton:hover { background-color: #106EBE; }
+            QPushButton:pressed { background-color: #005A9E; }
+            QPushButton:disabled { background-color: #404040; color: #808080; }
         """)
         self.install_btn.clicked.connect(self.install_dxvk)
         button_layout.addWidget(self.install_btn)
-        
+
         self.uninstall_btn = QPushButton("Restore Original DLLs")
         self.uninstall_btn.setToolTip("Restores the original DirectX DLLs from backup")
         self.uninstall_btn.setStyleSheet("""
             QPushButton {
-                background-color: #5A5A5A;
-                color: white;
-                border: none;
-                padding: 10px;
-                border-radius: 6px;
-                font-weight: 500;
-                font-size: 10pt;
+                background-color: #2D2D2D; color: #C8C8C8; border: 1px solid #3A3A3A;
+                padding: 9px; border-radius: 6px; font-weight: 500; font-size: 9.5pt;
             }
-            QPushButton:hover {
-                background-color: #6A6A6A;
-            }
-            QPushButton:pressed {
-                background-color: #4A4A4A;
-            }
-            QPushButton:disabled {
-                background-color: #404040;
-                color: #808080;
-            }
+            QPushButton:hover { background-color: #3A3A3A; color: #FFF; }
+            QPushButton:pressed { background-color: #262626; }
+            QPushButton:disabled { background-color: #202020; color: #5A5A5A; }
         """)
         self.uninstall_btn.clicked.connect(self.uninstall_dxvk)
         button_layout.addWidget(self.uninstall_btn)
-        
+
         layout.addLayout(button_layout)
         layout.addStretch()
 
@@ -824,37 +734,78 @@ class DXVKManagerGUI:
 
         return panel
 
+    # ── Shared modern card/row styling (used by Install and Config Editor tabs) ──
+    _COMBO_STYLE = """
+        QComboBox {
+            padding: 5px 8px; border: 1px solid #3A3A3A; border-radius: 5px;
+            background-color: #1A1A1A; color: #FFFFFF; min-height: 22px;
+        }
+        QComboBox:hover { border-color: #00A2FF; }
+        QComboBox::drop-down { border: none; background: transparent; width: 22px; }
+        QComboBox QAbstractItemView {
+            background-color: #242424; color: #FFFFFF;
+            selection-background-color: #0078D4; border: 1px solid #3A3A3A;
+            border-radius: 4px;
+        }"""
+    _SPIN_STYLE = """
+        QSpinBox {
+            padding: 5px 8px; border: 1px solid #3A3A3A; border-radius: 5px;
+            background-color: #1A1A1A; color: #FFFFFF; min-height: 22px;
+        }
+        QSpinBox:hover { border-color: #00A2FF; }
+        QSpinBox::up-button, QSpinBox::down-button { background: transparent; border: none; width: 16px; }"""
+    _CHECK_STYLE = """
+        QCheckBox { color: #E0E0E0; spacing: 8px; font-size: 9.5pt; min-height: 20px; }
+        QCheckBox::indicator {
+            width: 16px; height: 16px; border: 2px solid #3A3A3A;
+            border-radius: 4px; background-color: #1A1A1A;
+        }
+        QCheckBox::indicator:checked { background-color: #00A2FF; border: 2px solid #00A2FF; }
+        QCheckBox::indicator:hover { border-color: #00A2FF; }
+        QCheckBox::indicator:disabled { background-color: #2A2A2A; border: 2px solid #2E2E2E; }"""
+    _ROW_LABEL_STYLE = "color: #C8C8C8; font-size: 9.5pt; font-weight: 500;"
+    _GROUP_TITLE_STYLE = "color: #00A2FF; font-size: 8.5pt; font-weight: 700; letter-spacing: 0.5px;"
+
+    def _make_group(self, title):
+        """A flat card-style section container with a small header. Returns (card, inner_layout)."""
+        card = QFrame()
+        card.setStyleSheet("""
+            QFrame { background-color: #1E1E1E; border: 1px solid #2E2E2E; border-radius: 8px; }
+        """)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(14, 12, 14, 12)
+        card_layout.setSpacing(10)
+        header = QLabel(title)
+        header.setStyleSheet(self._GROUP_TITLE_STYLE)
+        card_layout.addWidget(header)
+        grid = QVBoxLayout()
+        grid.setSpacing(10)
+        card_layout.addLayout(grid)
+        return card, grid
+
+    def _add_row(self, grid, label_text, widget, hint_text=None):
+        """A single compact label+control row, optional one-line hint."""
+        r = QHBoxLayout()
+        r.setSpacing(8)
+        lbl = QLabel(label_text)
+        lbl.setStyleSheet(self._ROW_LABEL_STYLE)
+        lbl.setMinimumWidth(108)
+        lbl.setWordWrap(True)
+        r.addWidget(lbl, 0)
+        r.addWidget(widget, 1)
+        widget.setMinimumHeight(26)
+        grid.addLayout(r)
+        if hint_text:
+            hint = QLabel(hint_text)
+            hint.setStyleSheet("color: #6E6E6E; font-size: 7.5pt;")
+            hint.setWordWrap(True)
+            grid.addWidget(hint)
+
     def _create_conf_tab(self):
         """Build the dxvk.conf editor tab — compact modern grid, no scrolling."""
-        COMBO_STYLE = """
-            QComboBox {
-                padding: 5px 8px; border: 1px solid #3A3A3A; border-radius: 5px;
-                background-color: #1A1A1A; color: #FFFFFF; min-height: 22px;
-            }
-            QComboBox:hover { border-color: #00A2FF; }
-            QComboBox::drop-down { border: none; background: transparent; width: 22px; }
-            QComboBox QAbstractItemView {
-                background-color: #242424; color: #FFFFFF;
-                selection-background-color: #0078D4; border: 1px solid #3A3A3A;
-                border-radius: 4px;
-            }"""
-        SPIN_STYLE = """
-            QSpinBox {
-                padding: 5px 8px; border: 1px solid #3A3A3A; border-radius: 5px;
-                background-color: #1A1A1A; color: #FFFFFF; min-height: 22px;
-            }
-            QSpinBox:hover { border-color: #00A2FF; }
-            QSpinBox::up-button, QSpinBox::down-button { background: transparent; border: none; width: 16px; }"""
-        CHECK_STYLE = """
-            QCheckBox { color: #E0E0E0; spacing: 8px; font-size: 9.5pt; }
-            QCheckBox::indicator {
-                width: 16px; height: 16px; border: 2px solid #3A3A3A;
-                border-radius: 4px; background-color: #1A1A1A;
-            }
-            QCheckBox::indicator:checked { background-color: #00A2FF; border: 2px solid #00A2FF; }
-            QCheckBox::indicator:hover { border-color: #00A2FF; }"""
-        ROW_LABEL_STYLE = "color: #C8C8C8; font-size: 9.5pt; font-weight: 500;"
-        GROUP_TITLE_STYLE = "color: #00A2FF; font-size: 8.5pt; font-weight: 700; letter-spacing: 0.5px;"
+        COMBO_STYLE = self._COMBO_STYLE
+        SPIN_STYLE = self._SPIN_STYLE
+        CHECK_STYLE = self._CHECK_STYLE
 
         tab = QWidget()
         tab.setStyleSheet("background: transparent;")
@@ -871,39 +822,8 @@ class DXVKManagerGUI:
         self.conf_status.setWordWrap(True)
         layout.addWidget(self.conf_status)
 
-        def make_group(title):
-            """A flat card-style section container with a small header."""
-            card = QFrame()
-            card.setStyleSheet("""
-                QFrame { background-color: #1E1E1E; border: 1px solid #2E2E2E; border-radius: 8px; }
-            """)
-            card_layout = QVBoxLayout(card)
-            card_layout.setContentsMargins(12, 10, 12, 10)
-            card_layout.setSpacing(6)
-            header = QLabel(title)
-            header.setStyleSheet(GROUP_TITLE_STYLE)
-            card_layout.addWidget(header)
-            grid = QVBoxLayout()
-            grid.setSpacing(8)
-            card_layout.addLayout(grid)
-            return card, grid
-
-        def row(grid, label_text, widget, hint_text=None):
-            """A single compact label+control row, optional one-line hint."""
-            r = QHBoxLayout()
-            r.setSpacing(8)
-            lbl = QLabel(label_text)
-            lbl.setStyleSheet(ROW_LABEL_STYLE)
-            lbl.setMinimumWidth(108)
-            lbl.setWordWrap(True)
-            r.addWidget(lbl, 0)
-            r.addWidget(widget, 1)
-            grid.addLayout(r)
-            if hint_text:
-                hint = QLabel(hint_text)
-                hint.setStyleSheet("color: #6E6E6E; font-size: 7.5pt;")
-                hint.setWordWrap(True)
-                grid.addWidget(hint)
+        make_group = self._make_group
+        row = self._add_row
 
         # ── Rendering group: HUD + Tear-Free ─────────────────
         card1, g1 = make_group("RENDERING")
@@ -925,8 +845,8 @@ class DXVKManagerGUI:
         row(g1, "Tear-Free (VSync)", self.conf_tearfree)
         layout.addWidget(card1)
 
-        # ── Performance group ─────────────────────────────────
-        card2, g2 = make_group("PERFORMANCE")
+        # ── Shader compilation group ───────────────────────────
+        card2, g2 = make_group("SHADER COMPILATION")
         self.conf_async = QCheckBox("Enable async shader compilation")
         self.conf_async.setStyleSheet(CHECK_STYLE)
         g2.addWidget(self.conf_async)
@@ -943,18 +863,21 @@ class DXVKManagerGUI:
         self.conf_threads.setStyleSheet(SPIN_STYLE)
         row(g2, "Sync Threads", self.conf_threads)
 
-        self.conf_fps = QSpinBox()
-        self.conf_fps.setRange(0, 999)
-        self.conf_fps.setSpecialValueText("Unlimited")
-        self.conf_fps.setSuffix(" fps")
-        self.conf_fps.setStyleSheet(SPIN_STYLE)
-        row(g2, "Frame Rate Cap", self.conf_fps)
-
         self.conf_shadercache = QCheckBox("Enable on-disk shader cache")
         self.conf_shadercache.setChecked(True)
         self.conf_shadercache.setStyleSheet(CHECK_STYLE)
         g2.addWidget(self.conf_shadercache)
         layout.addWidget(card2)
+
+        # ── Frame rate group ────────────────────────────────────
+        card2b, g2b = make_group("FRAME RATE")
+        self.conf_fps = QSpinBox()
+        self.conf_fps.setRange(0, 999)
+        self.conf_fps.setSpecialValueText("Unlimited")
+        self.conf_fps.setSuffix(" fps")
+        self.conf_fps.setStyleSheet(SPIN_STYLE)
+        row(g2b, "Frame Rate Cap", self.conf_fps)
+        layout.addWidget(card2b)
 
         # ── Memory group ───────────────────────────────────────
         card3, g3 = make_group("MEMORY")
