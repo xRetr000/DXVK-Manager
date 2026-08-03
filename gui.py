@@ -606,6 +606,7 @@ class DXVKManagerGUI:
 
         install_scroll = QScrollArea()
         install_scroll.setWidgetResizable(True)
+        install_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         install_scroll.setFrameShape(QFrame.Shape.NoFrame)
         install_scroll.setStyleSheet("""
             QScrollArea { border: none; background: transparent; }
@@ -886,6 +887,7 @@ class DXVKManagerGUI:
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setStyleSheet("""
             QScrollArea { border: none; background: transparent; }
