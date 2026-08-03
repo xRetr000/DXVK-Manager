@@ -1158,12 +1158,11 @@ class DXVKManagerGUI:
         return name
 
     def _update_wiki_button(self, folder):
-        """Enable the PCGamingWiki button and label it with the guessed game name."""
+        """Enable the PCGamingWiki button, keeping its label short and fixed."""
         game_name = self._guess_game_name(folder)
         self._wiki_game_name = game_name
         self.wiki_btn.setEnabled(True)
-        display_name = game_name if len(game_name) <= 28 else game_name[:25] + "..."
-        self.wiki_btn.setText(f"🌐  View \"{display_name}\" on PCGamingWiki")
+        self.wiki_btn.setText("🌐  Search PCGamingWiki")
 
     def _open_pcgamingwiki(self):
         """Open PCGamingWiki search for the currently detected game name."""
