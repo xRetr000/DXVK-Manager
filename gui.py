@@ -18,13 +18,16 @@ class InstallationThread(QThread):
     log_signal = pyqtSignal(str)
     finished_signal = pyqtSignal(bool, str)
     
-    def __init__(self, manager, game_folder, architecture, directx_version, backup_enabled):
+    def __init__(self, manager, game_folder, architecture, directx_version, backup_enabled,
+                 source='official', version=None):
         super().__init__()
         self.manager = manager
         self.game_folder = game_folder
         self.architecture = architecture
         self.directx_version = directx_version
         self.backup_enabled = backup_enabled
+        self.source = source
+        self.version = version
     
     def run(self):
         """Run the installation in the background thread."""
@@ -33,6 +36,8 @@ class InstallationThread(QThread):
             self.log_signal.emit(f"Game folder: {self.game_folder}")
             self.log_signal.emit(f"Architecture: {self.architecture}")
             self.log_signal.emit(f"DirectX version: {self.directx_version}")
+            self.log_signal.emit(f"Source: {self.source}")
+            self.log_signal.emit(f"Version: {self.version or 'Latest'}")
             self.log_signal.emit(f"Backup enabled: {self.backup_enabled}")
             self.log_signal.emit("")  # Empty line for readability
 
@@ -49,7 +54,9 @@ class InstallationThread(QThread):
                         self.game_folder,
                         self.architecture,
                         self.directx_version,
-                        self.backup_enabled
+                        self.backup_enabled,
+                        source=self.source,
+                        version=self.version
                     )
 
                 if self.isInterruptionRequested():
@@ -110,6 +117,29 @@ class InstallationThread(QThread):
                 if line.strip():
                     self.log_signal.emit(f"  {line}")
             self.finished_signal.emit(False, f"Critical error: {error_msg}")
+
+class ReleaseFetchThread(QThread):
+    """Fetches the recent release list for a DXVK source without blocking the UI."""
+    releases_signal = pyqtSignal(list)
+    error_signal = pyqtSignal(str)
+
+    def __init__(self, source_key, limit=10):
+        super().__init__()
+        self.source_key = source_key
+        self.limit = limit
+
+    def run(self):
+        try:
+            from github_downloader import get_downloader
+            downloader = get_downloader(self.source_key)
+            releases = downloader.get_releases(limit=self.limit)
+            if self.isInterruptionRequested():
+                return
+            self.releases_signal.emit(releases)
+        except Exception as e:
+            if not self.isInterruptionRequested():
+                self.error_signal.emit(str(e))
+
 
 class DetectionThread(QThread):
     """Thread for analyzing game folder without blocking UI."""
@@ -677,6 +707,27 @@ class DXVKManagerGUI:
         row(g_detect, "Override", self.directx_combo, "Use if auto-detection picks the wrong version.")
         layout.addWidget(card_detect)
 
+        # ── DXVK Source card ────────────────────────────────────
+        card_source, g_source = make_group("DXVK SOURCE")
+
+        self.source_combo = QComboBox()
+        self.source_combo.addItem("Official (doitsujin/dxvk)", "official")
+        self.source_combo.addItem("GPLAsync (Ph42oN)", "gplasync")
+        self.source_combo.setToolTip("Choose which DXVK build to install")
+        self.source_combo.setStyleSheet(COMBO_STYLE)
+        self.source_combo.currentIndexChanged.connect(self._on_source_changed)
+        row(g_source, "Source", self.source_combo)
+
+        self.version_combo = QComboBox()
+        self.version_combo.addItem("Latest", None)
+        self.version_combo.setToolTip("Choose a specific version, or Latest for the newest release")
+        self.version_combo.setStyleSheet(COMBO_STYLE)
+        row(g_source, "Version", self.version_combo, "Loading available versions...")
+        layout.addWidget(card_source)
+
+        self._release_fetch_thread = None
+        self._fetch_releases_for_source("official")
+
         # ── Safety card ───────────────────────────────────────
         card_safety, g_safety = make_group("SAFETY")
         backup_row = QHBoxLayout()
@@ -1102,6 +1153,49 @@ class DXVKManagerGUI:
         webbrowser.open(url)
         self.log_message(f"Opened PCGamingWiki search for: {game_name}")
 
+    def _on_source_changed(self, index):
+        """Re-fetch the version list when the DXVK source is switched."""
+        source_key = self.source_combo.currentData()
+        self._fetch_releases_for_source(source_key)
+
+    def _fetch_releases_for_source(self, source_key):
+        """Kick off a background fetch of recent releases for the given source."""
+        self.version_combo.blockSignals(True)
+        self.version_combo.clear()
+        self.version_combo.addItem("Latest", None)
+        self.version_combo.addItem("Loading versions...", None)
+        loading_item = self.version_combo.model().item(1)
+        if loading_item is not None:
+            loading_item.setEnabled(False)
+        self.version_combo.blockSignals(False)
+
+        if self._release_fetch_thread and self._release_fetch_thread.isRunning():
+            self._release_fetch_thread.requestInterruption()
+            self._release_fetch_thread.wait()
+
+        self._release_fetch_thread = ReleaseFetchThread(source_key, limit=10)
+        self._release_fetch_thread.releases_signal.connect(self._on_releases_fetched)
+        self._release_fetch_thread.error_signal.connect(self._on_releases_fetch_error)
+        self._release_fetch_thread.start()
+
+    def _on_releases_fetched(self, releases):
+        """Populate the version dropdown once the release list arrives."""
+        self.version_combo.blockSignals(True)
+        self.version_combo.clear()
+        self.version_combo.addItem("Latest", None)
+        for r in releases:
+            self.version_combo.addItem(r["name"], r["tag_name"])
+        self.version_combo.blockSignals(False)
+        self.log_message(f"Loaded {len(releases)} available DXVK version(s).")
+
+    def _on_releases_fetch_error(self, error_message):
+        """Fall back to just 'Latest' if the version list couldn't be fetched."""
+        self.version_combo.blockSignals(True)
+        self.version_combo.clear()
+        self.version_combo.addItem("Latest", None)
+        self.version_combo.blockSignals(False)
+        self.log_message(f"Could not load version list ({error_message}). You can still install the latest version.")
+
     def create_right_panel(self):
         """Create the right log panel."""
         panel = ModernCard()
@@ -1315,14 +1409,22 @@ class DXVKManagerGUI:
             else:
                 directx_version = "Unknown"
         
+        # Determine DXVK source and version
+        source_key = self.source_combo.currentData()
+        source_label = self.source_combo.currentText()
+        version_tag = self.version_combo.currentData()
+        version_label = self.version_combo.currentText()
+
         # Show confirmation dialog with details
         confirm_msg = (
             f"Ready to install DXVK for:\n\n"
             f"Game Folder: {folder}\n"
             f"Architecture: {architecture}\n"
-            f"DirectX Version: {directx_version}\n\n"
+            f"DirectX Version: {directx_version}\n"
+            f"Source: {source_label}\n"
+            f"Version: {version_label}\n\n"
             f"This will:\n"
-            f"• Download the latest DXVK from GitHub\n"
+            f"• Download DXVK ({version_label}) from {source_label}\n"
             f"• Create a backup of existing DLLs\n"
             f"• Install DXVK DLLs to your game folder\n\n"
             f"Make sure your game is NOT running.\n\n"
@@ -1350,7 +1452,8 @@ class DXVKManagerGUI:
         
         # Start installation thread
         self.install_thread = InstallationThread(
-            self.manager, folder, architecture, directx_version, backup_enabled
+            self.manager, folder, architecture, directx_version, backup_enabled,
+            source=source_key, version=version_tag
         )
         self.install_thread.log_signal.connect(self.log_message)
         self.install_thread.finished_signal.connect(self.on_installation_finished)
