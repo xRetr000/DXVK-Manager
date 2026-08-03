@@ -598,11 +598,31 @@ class DXVKManagerGUI:
         """)
         outer_layout.addWidget(self.left_tabs)
 
+        install_outer = QWidget()
+        install_outer.setStyleSheet("background: transparent;")
+        install_outer_layout = QVBoxLayout(install_outer)
+        install_outer_layout.setContentsMargins(0, 0, 0, 0)
+        install_outer_layout.setSpacing(0)
+
+        install_scroll = QScrollArea()
+        install_scroll.setWidgetResizable(True)
+        install_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        install_scroll.setStyleSheet("""
+            QScrollArea { border: none; background: transparent; }
+            QScrollBar:vertical { background: #1A1A1A; width: 10px; border-radius: 5px; }
+            QScrollBar::handle:vertical { background: #3A3A3A; border-radius: 5px; min-height: 24px; }
+            QScrollBar::handle:vertical:hover { background: #4A4A4A; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+        """)
+
         install_tab = QWidget()
         install_tab.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(install_tab)
         layout.setSpacing(15)
-        layout.setContentsMargins(0, 12, 0, 0)
+        layout.setContentsMargins(0, 12, 6, 12)
+
+        install_scroll.setWidget(install_tab)
+        install_outer_layout.addWidget(install_scroll)
 
         # Use the shared card/row helpers so Install matches Config Editor's look
         make_group = self._make_group
@@ -780,7 +800,7 @@ class DXVKManagerGUI:
         layout.addLayout(button_layout)
         layout.addStretch()
 
-        self.left_tabs.addTab(install_tab, "Install")
+        self.left_tabs.addTab(install_outer, "Install")
         self.left_tabs.addTab(self._create_conf_tab(), "Config Editor")
 
         return panel
