@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img width="1346" height="904" alt="DXVK Manager screenshot" src="https://github.com/user-attachments/assets/f7c40141-cbbf-4a5e-ab08-646b83b74975" />
+<img width="1346" height="904" alt="image" src="https://github.com/user-attachments/assets/04244275-d2f1-4499-8f8a-b2e4d17def07" />
 </p>
 
 ---
