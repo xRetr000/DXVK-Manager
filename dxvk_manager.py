@@ -1,6 +1,6 @@
 import os
 import tempfile
-from github_downloader import GithubDownloader
+from github_downloader import GithubDownloader, get_downloader
 from constants import DLL_MAP
 from file_manager import FileManager
 from logger import Logger
@@ -15,12 +15,18 @@ except ImportError:
 
 class DXVKManager:
     def __init__(self):
-        self.downloader = GithubDownloader()
+        self.downloader = GithubDownloader()  # kept for backward compatibility
         self.file_manager = FileManager()
         self.logger = Logger()
 
-    def install_dxvk(self, game_folder, architecture, directx_version, backup_enabled):
-        """Main installation logic."""
+    def install_dxvk(self, game_folder, architecture, directx_version, backup_enabled,
+                      source='official', version=None):
+        """
+        Main installation logic.
+
+        source: 'official' (doitsujin/dxvk) or 'gplasync' (Ph42oN/dxvk-gplasync).
+        version: a specific release tag_name to install, or None to use the latest.
+        """
         try:
             # Validate inputs
             if not game_folder or not os.path.exists(game_folder):
@@ -38,17 +44,22 @@ class DXVKManager:
                 else:
                     raise ValueError(f"Invalid architecture: {architecture}")
             
-            # Step 1: Get latest DXVK release info
-            print("Fetching latest DXVK release...")
-            release_info = self.downloader.get_latest_release_info()
-            version = release_info['tag_name']
+            # Step 1: Get DXVK release info for the chosen source/version
+            downloader = get_downloader(source)
+            self.downloader = downloader  # keep in sync for any external callers
+            if version:
+                print(f"Fetching DXVK release {version} from {downloader.source_name}...")
+            else:
+                print(f"Fetching latest DXVK release from {downloader.source_name}...")
+            release_info = downloader.get_release_info(version)
+            resolved_version = release_info['tag_name']
             download_url = release_info.get('download_url') or release_info.get('zipball_url')
             file_format = release_info.get('download_format', 'tar.gz')
             
             if not download_url:
                 raise ValueError("Could not find download URL in release information. The DXVK release may not have a downloadable asset.")
             
-            print(f"Latest DXVK version: {version}")
+            print(f"DXVK version: {resolved_version}")
             print(f"Download URL: {download_url}")
             print(f"File format: {file_format}")
             
@@ -57,7 +68,7 @@ class DXVKManager:
                 print(f"Extracting DXVK to temporary directory: {temp_dir}")
                 
                 # Step 3: Download and extract DXVK
-                self.downloader.download_and_extract_dxvk(download_url, temp_dir, architecture, directx_version, file_format)
+                downloader.download_and_extract_dxvk(download_url, temp_dir, architecture, directx_version, file_format)
                 
                 # Step 4: Determine which DLLs to install
                 dlls_to_install = DLL_MAP.get(directx_version, DLL_MAP['Unknown'])
@@ -111,7 +122,7 @@ class DXVKManager:
                     )
                 
                 # Step 7: Log the installation
-                self.logger.log_installation(game_folder, architecture, directx_version, version)
+                self.logger.log_installation(game_folder, architecture, directx_version, resolved_version)
                 
                 print(f"DXVK installation completed successfully! Installed: {', '.join(installed_dlls)}")
                 return True
@@ -145,4 +156,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
