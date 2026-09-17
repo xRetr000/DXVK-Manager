@@ -12,7 +12,7 @@ license = "Apache-2.0"
 authors = [
     {name = "xRetr000", email = "xretrocs@gmail.com"}
 ]
-keywords = ["dxvk", "gaming", "vulkan", "directx", "wine", "linux", "windows"]
+keywords = ["dxvk", "vkd3d-proton", "gaming", "vulkan", "directx", "wine", "linux", "windows"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: End Users/Desktop",
@@ -31,9 +31,8 @@ dependencies = [
     "pefile>=2023.2.7",
     "requests>=2.31.0",
     "PyQt6>=6.6.0",
+    "zstandard>=0.22.0",
 ]
-
-
 
 [project.scripts]
 dxvk-manager = "dxvk_manager:main"
@@ -43,4 +42,3 @@ Homepage = "https://github.com/xRetr000/DXVK-Manager"
 Documentation = "https://github.com/xRetr000/DXVK-Manager#readme"
 Repository = "https://github.com/xRetr000/DXVK-Manager"
 Issues = "https://github.com/xRetr000/DXVK-Manager/issues"
-

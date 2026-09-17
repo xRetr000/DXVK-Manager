@@ -1,158 +1,106 @@
 import os
 import tempfile
 from github_downloader import GithubDownloader, get_downloader
-from constants import DLL_MAP
+from constants import get_dll_map
 from file_manager import FileManager
 from logger import Logger
 
-# Import GUI at module level for PyInstaller compatibility
-# This ensures PyInstaller includes the gui module in the executable
 try:
     from gui import DXVKManagerGUI
 except ImportError:
-    # Fallback if gui module not available (shouldn't happen in normal use)
     DXVKManagerGUI = None
+
 
 class DXVKManager:
     def __init__(self):
-        self.downloader = GithubDownloader()  # kept for backward compatibility
+        self.downloader = GithubDownloader()
         self.file_manager = FileManager()
         self.logger = Logger()
 
     def install_dxvk(self, game_folder, architecture, directx_version, backup_enabled,
-                      source='official', version=None):
-        """
-        Main installation logic.
-
-        source: 'official' (doitsujin/dxvk) or 'gplasync' (Ph42oN/dxvk-gplasync).
-        version: a specific release tag_name to install, or None to use the latest.
-        """
+                     source="official", version=None):
+        """Download and install the selected DXVK or vkd3d-proton source."""
         try:
-            # Validate inputs
             if not game_folder or not os.path.exists(game_folder):
                 raise ValueError(f"Game folder does not exist: {game_folder}")
-            
             if architecture not in ["32-bit", "64-bit"]:
-                if architecture in ["Not detected", "Unknown", "Error"]:
-                    raise ValueError(
-                        "Could not detect game architecture (32-bit or 64-bit).\n\n"
-                        "Please ensure:\n"
-                        "• You selected the folder containing the game's main .exe file\n"
-                        "• The .exe file is a valid Windows executable\n"
-                        "• The game folder is accessible"
-                    )
-                else:
-                    raise ValueError(f"Invalid architecture: {architecture}")
-            
-            # Step 1: Get DXVK release info for the chosen source/version
+                raise ValueError("Could not detect game architecture (32-bit or 64-bit).")
+
             downloader = get_downloader(source)
-            self.downloader = downloader  # keep in sync for any external callers
-            if version:
-                print(f"Fetching DXVK release {version} from {downloader.source_name}...")
-            else:
-                print(f"Fetching latest DXVK release from {downloader.source_name}...")
+            self.downloader = downloader
+            product = "vkd3d-proton" if source == "vkd3d-proton" else "DXVK"
+            print(f"Fetching {product} release from {downloader.source_name}...")
             release_info = downloader.get_release_info(version)
-            resolved_version = release_info['tag_name']
-            download_url = release_info.get('download_url') or release_info.get('zipball_url')
-            file_format = release_info.get('download_format', 'tar.gz')
-            
+            resolved_version = release_info["tag_name"]
+            download_url = release_info.get("download_url") or release_info.get("zipball_url")
+            file_format = release_info.get("download_format", "tar.gz")
             if not download_url:
-                raise ValueError("Could not find download URL in release information. The DXVK release may not have a downloadable asset.")
-            
-            print(f"DXVK version: {resolved_version}")
+                raise ValueError("The selected release has no downloadable asset.")
+
+            print(f"{product} version: {resolved_version}")
             print(f"Download URL: {download_url}")
             print(f"File format: {file_format}")
-            
-            # Step 2: Create temporary directory for extraction
+
+            dll_map = get_dll_map(source)
+            dlls_to_install = dll_map.get(directx_version, dll_map["Unknown"])
             with tempfile.TemporaryDirectory() as temp_dir:
-                print(f"Extracting DXVK to temporary directory: {temp_dir}")
-                
-                # Step 3: Download and extract DXVK
-                downloader.download_and_extract_dxvk(download_url, temp_dir, architecture, directx_version, file_format)
-                
-                # Step 4: Determine which DLLs to install
-                dlls_to_install = DLL_MAP.get(directx_version, DLL_MAP['Unknown'])
-                
-                # Verify DLLs were extracted - only check for DLLs that actually exist
-                missing_dlls = []
-                extracted_dlls = []
-                for dll in dlls_to_install:
-                    dll_path = os.path.join(temp_dir, dll)
-                    if os.path.exists(dll_path):
-                        extracted_dlls.append(dll)
-                    else:
-                        missing_dlls.append(dll)
-                
-                # If we have at least some DLLs extracted, proceed (especially for Unknown case)
+                print(f"Extracting {product} to temporary directory: {temp_dir}")
+                downloader.download_and_extract_dxvk(download_url, temp_dir, architecture,
+                                                     directx_version, file_format)
+                extracted_dlls = [dll for dll in dlls_to_install
+                                  if os.path.exists(os.path.join(temp_dir, dll))]
+                missing_dlls = [dll for dll in dlls_to_install if dll not in extracted_dlls]
                 if not extracted_dlls:
-                    raise ValueError(f"Failed to extract any required DLLs. Missing: {', '.join(missing_dlls)}. The DXVK release may have a different structure.")
-                
-                # Warn about missing DLLs but don't fail if we have some
+                    raise ValueError(f"Failed to extract required DLLs: {', '.join(missing_dlls)}")
                 if missing_dlls:
-                    print(f"Warning: Some DLLs were not found: {', '.join(missing_dlls)}. Continuing with available DLLs: {', '.join(extracted_dlls)}")
-                    # Update dlls_to_install to only include what we actually have
+                    print(f"Warning: Missing DLLs: {', '.join(missing_dlls)}")
                     dlls_to_install = extracted_dlls
-                
-                # Step 5: Backup existing DLLs if requested
+
                 if backup_enabled:
                     print("Creating backup of existing DLLs...")
                     self.file_manager.backup_dlls(game_folder, dlls_to_install)
-                
-                # Step 6: Copy DXVK DLLs to game folder
-                print("Installing DXVK DLLs...")
+                print(f"Installing {product} DLLs...")
                 self.file_manager.copy_dlls(temp_dir, game_folder, dlls_to_install)
-                
-                # Verify installation
-                installed_dlls = []
-                for dll in dlls_to_install:
-                    dll_path = os.path.join(game_folder, dll)
-                    if os.path.exists(dll_path):
-                        installed_dlls.append(dll)
-                    else:
-                        print(f"Warning: {dll} was not installed successfully.")
-                
+                installed_dlls = [dll for dll in dlls_to_install
+                                  if os.path.exists(os.path.join(game_folder, dll))]
                 if not installed_dlls:
-                    raise ValueError(
-                        "No DLLs were installed.\n\n"
-                        "Possible causes:\n"
-                        "• Game folder requires administrator privileges (try running as Admin)\n"
-                        "• Game is currently running (close it first)\n"
-                        "• Antivirus is blocking file operations\n"
-                        "• Folder is read-only or protected"
-                    )
-                
-                # Step 7: Log the installation
+                    raise ValueError("No DLLs were installed. Check permissions and close the game.")
                 self.logger.log_installation(game_folder, architecture, directx_version, resolved_version)
-                
-                print(f"DXVK installation completed successfully! Installed: {', '.join(installed_dlls)}")
+                print(f"{product} installation completed successfully! Installed: {', '.join(installed_dlls)}")
                 return True
-                
-        except Exception as e:
-            print(f"Installation failed: {str(e)}")
+        except Exception as exc:
+            print(f"Installation failed: {exc}")
             import traceback
             print(f"Error details: {traceback.format_exc()}")
             return False
 
     def uninstall_dxvk(self, game_folder):
-        """Uninstalls DXVK by restoring backups."""
         try:
             return self.file_manager.restore_dlls(game_folder)
-        except Exception as e:
-            print(f"Uninstallation failed: {str(e)}")
+        except Exception as exc:
+            print(f"Uninstallation failed: {exc}")
             return False
 
+
+def _add_vkd3d_to_gui(gui):
+    """Add the vkd3d-proton option to the already-built GUI without breaking old layouts."""
+    source_combo = getattr(gui, "source_combo", None)
+    if source_combo is not None and source_combo.findData("vkd3d-proton") < 0:
+        source_combo.addItem("vkd3d-proton (HansKristian-Work)", "vkd3d-proton")
+    directx_combo = getattr(gui, "directx_combo", None)
+    if directx_combo is not None and directx_combo.findText("Direct3D 12") < 0:
+        directx_combo.addItem("Direct3D 12")
+
+
 def main():
-    """Main entry point for the application."""
     if DXVKManagerGUI is None:
         print("Error: GUI module not found!")
-        print("Please ensure gui.py is in the same directory as dxvk_manager.py")
         return
-    
     manager = DXVKManager()
-    
-    # Create and run the GUI
     gui = DXVKManagerGUI(manager)
+    _add_vkd3d_to_gui(gui)
     gui.run()
+
 
 if __name__ == "__main__":
     main()
