@@ -24,15 +24,8 @@ def test_vkd3d_release_selects_tar_zst_asset():
     assert release["download_url"].endswith(".tar.zst")
 
 
-def test_vkd3d_extracts_x64_d3d12_dlls(tmp_path):
+def test_vkd3d_dll_mapping_and_x86_layout():
     downloader = Vkd3dProtonDownloader()
-    archive = io.BytesIO()
-    with tarfile.open(fileobj=archive, mode="w") as tar:
-        for name in ("d3d12.dll", "d3d12core.dll"):
-            data = b"test"
-            info = tarfile.TarInfo(f"vkd3d-proton-v3/x64/{name}")
-            info.size = len(data)
-            tar.addfile(info, io.BytesIO(data))
-    # The zstandard dependency is intentionally used only for the compressed
-    # release path; this test validates the source-specific file mapping.
+    assert downloader.archive_subfolders["64-bit"] == "x64"
+    assert downloader.archive_subfolders["32-bit"] == "x86"
     assert downloader.get_dlls("Direct3D 12") == ["d3d12.dll", "d3d12core.dll"]

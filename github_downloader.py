@@ -30,11 +30,12 @@ class DXVKDownloaderBase:
         subfolder = self.archive_subfolders["64-bit" if arch == "64-bit" else "32-bit"]
         dlls_to_extract = self.get_dlls(directx_version)
 
-        if file_format == "zip":
+        normalized_format = file_format.lower().lstrip(".")
+        if normalized_format == "zip":
             self._extract_from_zip(content, extract_path, subfolder, dlls_to_extract)
-        elif file_format in ("tar.gz", "tgz"):
+        elif normalized_format in ("tar.gz", "tgz", "gz"):
             self._extract_from_targz(content, extract_path, subfolder, dlls_to_extract)
-        elif file_format in ("tar.zst", "tzst"):
+        elif normalized_format in ("tar.zst", "tzst", "zst"):
             self._extract_from_tarzst(content, extract_path, subfolder, dlls_to_extract)
         else:
             raise ValueError(f"Unsupported release archive format: {file_format}")
@@ -94,11 +95,16 @@ class DXVKDownloaderBase:
 
     def get_version_from_url(self, download_url):
         filename = download_url.split("/")[-1]
+        lower_filename = filename.lower()
         for suffix in (".tar.zst", ".tar.gz", ".zip"):
-            if filename.lower().endswith(suffix):
+            if lower_filename.endswith(suffix):
                 filename = filename[:-len(suffix)]
                 break
-        return filename.removeprefix("dxvk-").removeprefix("vkd3d-proton-")
+        for prefix in ("dxvk-", "vkd3d-proton-"):
+            if filename.lower().startswith(prefix):
+                filename = filename[len(prefix):]
+                break
+        return filename
 
     def get_latest_release_info(self):
         return self.get_release_info(None)
@@ -125,11 +131,13 @@ class GithubDownloader(DXVKDownloaderBase):
         response = requests.get(url, timeout=30)
         response.raise_for_status()
         data = response.json()
-        asset = next((a for a in data.get("assets", []) if a["name"].lower().endswith((".zip", ".tar.gz"))), None)
+        asset = next((a for a in data.get("assets", [])
+                      if a["name"].lower().endswith((".zip", ".tar.gz"))), None)
         if not asset:
-            raise ValueError("No ZIP or TAR.GZ asset found in this DXVK release.")
+            raise ValueError("No supported ZIP or TAR.GZ asset found in this DXVK release.")
+        asset_name = asset["name"].lower()
         data.update(download_url=asset["browser_download_url"], download_filename=asset["name"],
-                    download_format="zip" if asset["name"].lower().endswith(".zip") else "tar.gz")
+                    download_format="zip" if asset_name.endswith(".zip") else "tar.gz")
         return data
 
 
@@ -174,17 +182,29 @@ class Vkd3dProtonDownloader(GithubDownloader):
         super().__init__("HansKristian-Work", "vkd3d-proton")
 
     def get_release_info(self, tag_name=None):
-        data = super().get_release_info(tag_name)
-        # vkd3d-proton currently publishes tar.zst releases.
-        if not data["download_filename"].lower().endswith((".tar.zst", ".tar.gz", ".zip")):
-            raise ValueError("The vkd3d-proton release has no supported archive asset.")
+        url = f"{self.api_base_url}/releases/tags/{tag_name}" if tag_name else f"{self.api_base_url}/releases/latest"
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        asset = next((a for a in data.get("assets", [])
+                      if a["name"].lower().endswith((".tar.zst", ".tar.gz", ".zip"))), None)
+        if not asset:
+            raise ValueError("No supported vkd3d-proton archive asset found in this release.")
+        asset_name = asset["name"].lower()
+        if asset_name.endswith(".tar.zst"):
+            archive_format = "tar.zst"
+        elif asset_name.endswith(".tar.gz"):
+            archive_format = "tar.gz"
+        else:
+            archive_format = "zip"
+        data.update(download_url=asset["browser_download_url"], download_filename=asset["name"],
+                    download_format=archive_format)
         return data
 
     def get_releases(self, limit=10):
         return super().get_releases(limit)
 
 
-# Keep the old factory names and source keys stable for existing configurations.
 def get_downloader(source_key):
     if source_key == "gplasync":
         return GitlabDownloader()

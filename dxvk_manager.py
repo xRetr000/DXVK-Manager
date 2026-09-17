@@ -83,7 +83,7 @@ class DXVKManager:
 
 
 def _add_vkd3d_to_gui(gui):
-    """Add the vkd3d-proton option to the already-built GUI without breaking old layouts."""
+    """Add vkd3d-proton controls to the current GUI without breaking older layouts."""
     source_combo = getattr(gui, "source_combo", None)
     if source_combo is not None and source_combo.findData("vkd3d-proton") < 0:
         source_combo.addItem("vkd3d-proton (HansKristian-Work)", "vkd3d-proton")
