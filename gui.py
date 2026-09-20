@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
 from PyQt6.QtGui import QFont, QPalette, QColor, QIcon
+from constants import RENDERER_DXVK, RENDERER_VKD3D, RENDERER_NAMES
 
 class InstallationThread(QThread):
     """Thread for running DXVK installation without blocking UI."""
@@ -19,7 +20,7 @@ class InstallationThread(QThread):
     finished_signal = pyqtSignal(bool, str)
     
     def __init__(self, manager, game_folder, architecture, directx_version, backup_enabled,
-                 source='official', version=None):
+                 source='official', version=None, renderer_name='DXVK'):
         super().__init__()
         self.manager = manager
         self.game_folder = game_folder
@@ -28,14 +29,17 @@ class InstallationThread(QThread):
         self.backup_enabled = backup_enabled
         self.source = source
         self.version = version
-    
+        self.renderer_name = renderer_name
+
     def run(self):
         """Run the installation in the background thread."""
         try:
-            self.log_signal.emit("Starting DXVK installation...")
+            name = self.renderer_name
+            self.log_signal.emit(f"Starting {name} installation...")
             self.log_signal.emit(f"Game folder: {self.game_folder}")
             self.log_signal.emit(f"Architecture: {self.architecture}")
             self.log_signal.emit(f"DirectX version: {self.directx_version}")
+            self.log_signal.emit(f"Renderer: {name}")
             self.log_signal.emit(f"Source: {self.source}")
             self.log_signal.emit(f"Version: {self.version or 'Latest'}")
             self.log_signal.emit(f"Backup enabled: {self.backup_enabled}")
@@ -80,16 +84,16 @@ class InstallationThread(QThread):
                 
                 if success:
                     self.log_signal.emit("")
-                    self.log_signal.emit("✓ DXVK installation completed successfully!")
-                    self.finished_signal.emit(True, "DXVK installation completed successfully!")
+                    self.log_signal.emit(f"✓ {name} installation completed successfully!")
+                    self.finished_signal.emit(True, f"{name} installation completed successfully!")
                 else:
                     self.log_signal.emit("")
-                    self.log_signal.emit("✗ DXVK installation failed.")
+                    self.log_signal.emit(f"✗ {name} installation failed.")
                     error_details = stdout_output + stderr_output
                     if error_details.strip():
-                        error_msg = "DXVK installation failed. Check the log above for details."
+                        error_msg = f"{name} installation failed. Check the log above for details."
                     else:
-                        error_msg = "DXVK installation failed. No error details available."
+                        error_msg = f"{name} installation failed. No error details available."
                     self.finished_signal.emit(False, error_msg)
                     
             except Exception as e:
@@ -119,7 +123,7 @@ class InstallationThread(QThread):
             self.finished_signal.emit(False, f"Critical error: {error_msg}")
 
 class ReleaseFetchThread(QThread):
-    """Fetches the recent release list for a DXVK source without blocking the UI."""
+    """Fetches the recent release list for a DXVK / vkd3d-proton source without blocking the UI."""
     releases_signal = pyqtSignal(list)
     error_signal = pyqtSignal(str)
 
@@ -722,20 +726,37 @@ class DXVKManagerGUI:
         row(g_detect, "DirectX Version", self.directx_label)
 
         self.directx_combo = QComboBox()
-        self.directx_combo.addItems(["Auto-detect", "Direct3D 9", "Direct3D 10", "Direct3D 11"])
-        self.directx_combo.setToolTip("Manually select DirectX version if auto-detection fails")
+        self.directx_combo.addItems(["Auto-detect", "Direct3D 9", "Direct3D 10", "Direct3D 11", "Direct3D 12"])
+        self.directx_combo.setToolTip(
+            "Manually select DirectX version if auto-detection fails.\n"
+            "Direct3D 9/10/11 use DXVK; Direct3D 12 uses vkd3d-proton."
+        )
+        self.directx_combo.currentIndexChanged.connect(self._on_directx_override_changed)
         self.directx_combo.setStyleSheet(COMBO_STYLE)
         row(g_detect, "Override", self.directx_combo, "Use if auto-detection picks the wrong version.")
         layout.addWidget(card_detect)
 
-        # ── DXVK Source card ────────────────────────────────────
-        card_source, g_source = make_group("DXVK SOURCE")
+        # ── Translation layer card ────────────────────────────
+        # Renderer picks the translation layer (DXVK for D3D9/10/11, vkd3d-proton
+        # for D3D12); Source then lists the builds available for that renderer.
+        card_source, g_source = make_group("TRANSLATION LAYER")
+
+        self.renderer_combo = QComboBox()
+        self.renderer_combo.addItem("DXVK (Direct3D 9 / 10 / 11)", RENDERER_DXVK)
+        self.renderer_combo.addItem("vkd3d-proton (Direct3D 12)", RENDERER_VKD3D)
+        self.renderer_combo.setToolTip(
+            "DXVK translates Direct3D 9/10/11 to Vulkan.\n"
+            "vkd3d-proton translates Direct3D 12 to Vulkan.\n"
+            "Pick the one matching your game's DirectX version."
+        )
+        self.renderer_combo.setStyleSheet(COMBO_STYLE)
+        self.renderer_combo.currentIndexChanged.connect(self._on_renderer_changed)
+        row(g_source, "Renderer", self.renderer_combo)
 
         self.source_combo = QComboBox()
-        self.source_combo.addItem("Official (doitsujin/dxvk)", "official")
-        self.source_combo.addItem("GPLAsync (Ph42oN)", "gplasync")
-        self.source_combo.setToolTip("Choose which DXVK build to install")
+        self.source_combo.setToolTip("Choose which build to install")
         self.source_combo.setStyleSheet(COMBO_STYLE)
+        self._populate_sources(RENDERER_DXVK)
         self.source_combo.currentIndexChanged.connect(self._on_source_changed)
         row(g_source, "Source", self.source_combo)
 
@@ -747,7 +768,7 @@ class DXVKManagerGUI:
         layout.addWidget(card_source)
 
         self._release_fetch_thread = None
-        self._fetch_releases_for_source("official")
+        self._fetch_releases_for_source(self.source_combo.currentData())
 
         # ── Safety card ───────────────────────────────────────
         card_safety, g_safety = make_group("SAFETY")
@@ -771,7 +792,7 @@ class DXVKManagerGUI:
         button_layout.setSpacing(8)
 
         self.install_btn = QPushButton("Install DXVK")
-        self.install_btn.setToolTip("Downloads and installs DXVK DLLs to your game folder")
+        self.install_btn.setToolTip("Downloads and installs the selected renderer's DLLs to your game folder")
         self.install_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0078D4; color: white; border: none;
@@ -1174,8 +1195,61 @@ class DXVKManagerGUI:
         webbrowser.open(url)
         self.log_message(f"Opened PCGamingWiki search for: {game_name}")
 
+    def _current_renderer(self):
+        """Renderer key ('dxvk' or 'vkd3d-proton') currently selected in the UI."""
+        return self.renderer_combo.currentData() or RENDERER_DXVK
+
+    def _current_renderer_name(self):
+        """Display name of the currently selected renderer."""
+        return RENDERER_NAMES[self._current_renderer()]
+
+    def _populate_sources(self, renderer):
+        """Fill the source dropdown with the builds available for the given renderer."""
+        from github_downloader import get_sources_for_renderer
+        self.source_combo.blockSignals(True)
+        self.source_combo.clear()
+        for source_key, source_name in get_sources_for_renderer(renderer):
+            self.source_combo.addItem(source_name, source_key)
+        self.source_combo.blockSignals(False)
+
+    def _on_renderer_changed(self, index):
+        """Swap the source list and version list when the renderer is switched."""
+        renderer = self._current_renderer()
+        self._populate_sources(renderer)
+        self._fetch_releases_for_source(self.source_combo.currentData())
+        if hasattr(self, "install_btn"):
+            self.install_btn.setText(f"Install {self._current_renderer_name()}")
+
+    def _on_directx_override_changed(self, index):
+        """Keep the renderer in step with a manual DirectX override."""
+        text = self.directx_combo.currentText()
+        if text == "Direct3D 12":
+            self._select_renderer(RENDERER_VKD3D)
+        elif text != "Auto-detect":
+            self._select_renderer(RENDERER_DXVK)
+
+    def _select_renderer(self, renderer):
+        """Programmatically select a renderer (no-op if already selected)."""
+        idx = self.renderer_combo.findData(renderer)
+        if idx >= 0 and idx != self.renderer_combo.currentIndex():
+            self.renderer_combo.setCurrentIndex(idx)
+
+    def _suggest_renderer_from_detection(self, directx_text):
+        """After detection, pre-select vkd3d-proton for D3D12-only games, DXVK otherwise."""
+        if directx_text in ("Not detected", "Analyzing...", "Error"):
+            return
+        if self.directx_combo.currentText() != "Auto-detect":
+            return  # user override wins
+        versions = [v.strip() for v in directx_text.split(",")]
+        non_d3d12 = [v for v in versions if v != "Direct3D 12"]
+        if "Direct3D 12" in versions and not non_d3d12:
+            self._select_renderer(RENDERER_VKD3D)
+            self.log_message("Direct3D 12 detected: switched renderer to vkd3d-proton.")
+        elif non_d3d12:
+            self._select_renderer(RENDERER_DXVK)
+
     def _on_source_changed(self, index):
-        """Re-fetch the version list when the DXVK source is switched."""
+        """Re-fetch the version list when the source is switched."""
         source_key = self.source_combo.currentData()
         self._fetch_releases_for_source(source_key)
 
@@ -1207,7 +1281,7 @@ class DXVKManagerGUI:
         for r in releases:
             self.version_combo.addItem(r["name"], r["tag_name"])
         self.version_combo.blockSignals(False)
-        self.log_message(f"Loaded {len(releases)} available DXVK version(s).")
+        self.log_message(f"Loaded {len(releases)} available {self._current_renderer_name()} version(s).")
 
     def _on_releases_fetch_error(self, error_message):
         """Fall back to just 'Latest' if the version list couldn't be fetched."""
@@ -1305,6 +1379,7 @@ class DXVKManagerGUI:
         """Handle detection results."""
         self.architecture_label.setText(architecture)
         self.directx_label.setText(directx)
+        self._suggest_renderer_from_detection(directx)
 
     def show_exe_picker(self, exe_files):
         """Show a dialog to let the user pick the correct .exe when multiple are found."""
@@ -1398,7 +1473,7 @@ class DXVKManagerGUI:
             self.directx_label.setText("Error")
 
     def install_dxvk(self):
-        """Start DXVK installation with confirmation."""
+        """Start DXVK / vkd3d-proton installation with confirmation."""
         folder = self.folder_input.text()
         if not folder:
             DarkMessageBox.warning(
@@ -1420,17 +1495,54 @@ class DXVKManagerGUI:
             ):
                 return
         
-        # Determine DirectX version
+        renderer = self._current_renderer()
+        renderer_name = self._current_renderer_name()
+
+        # Determine DirectX version. vkd3d-proton only ever targets D3D12; for DXVK,
+        # skip a detected D3D12 entry so a game shipping both d3d11.dll and d3d12.dll
+        # still resolves to the D3D11 DLL set.
         if self.directx_combo.currentText() != "Auto-detect":
             directx_version = self.directx_combo.currentText()
+        elif renderer == RENDERER_VKD3D:
+            directx_version = "Direct3D 12"
         else:
             directx_text = self.directx_label.text()
             if directx_text != "Not detected" and directx_text != "Analyzing...":
-                directx_version = directx_text.split(", ")[0]
+                detected = [v.strip() for v in directx_text.split(",") if v.strip() != "Direct3D 12"]
+                directx_version = detected[0] if detected else "Unknown"
             else:
                 directx_version = "Unknown"
-        
-        # Determine DXVK source and version
+
+        # Refuse an obvious renderer/DirectX mismatch before doing any work
+        if renderer == RENDERER_VKD3D and directx_version != "Direct3D 12":
+            DarkMessageBox.warning(
+                self.window,
+                "Renderer Mismatch",
+                f"vkd3d-proton only supports Direct3D 12 games, but the DirectX version "
+                f"is set to {directx_version}.\n\n"
+                f"Switch the renderer to DXVK, or set the override to Direct3D 12."
+            )
+            return
+        if renderer == RENDERER_DXVK and directx_version == "Direct3D 12":
+            DarkMessageBox.warning(
+                self.window,
+                "Renderer Mismatch",
+                "DXVK does not support Direct3D 12.\n\n"
+                "Switch the renderer to vkd3d-proton to install a D3D12 translation layer."
+            )
+            return
+        if renderer == RENDERER_DXVK and directx_version == "Unknown" \
+                and "Direct3D 12" in self.directx_label.text():
+            if not DarkMessageBox.question(
+                self.window,
+                "Direct3D 12 Game Detected",
+                "Only d3d12.dll was found in this game folder, which suggests a Direct3D 12 game.\n\n"
+                "DXVK does not support Direct3D 12 — you probably want the vkd3d-proton renderer.\n\n"
+                "Install DXVK anyway?"
+            ):
+                return
+
+        # Determine source and version
         source_key = self.source_combo.currentData()
         source_label = self.source_combo.currentText()
         version_tag = self.version_combo.currentData()
@@ -1438,16 +1550,17 @@ class DXVKManagerGUI:
 
         # Show confirmation dialog with details
         confirm_msg = (
-            f"Ready to install DXVK for:\n\n"
+            f"Ready to install {renderer_name} for:\n\n"
             f"Game Folder: {folder}\n"
             f"Architecture: {architecture}\n"
             f"DirectX Version: {directx_version}\n"
+            f"Renderer: {renderer_name}\n"
             f"Source: {source_label}\n"
             f"Version: {version_label}\n\n"
             f"This will:\n"
-            f"• Download DXVK ({version_label}) from {source_label}\n"
+            f"• Download {renderer_name} ({version_label}) from {source_label}\n"
             f"• Create a backup of existing DLLs\n"
-            f"• Install DXVK DLLs to your game folder\n\n"
+            f"• Install {renderer_name} DLLs to your game folder\n\n"
             f"Make sure your game is NOT running.\n\n"
             f"Continue with installation?"
         )
@@ -1474,7 +1587,7 @@ class DXVKManagerGUI:
         # Start installation thread
         self.install_thread = InstallationThread(
             self.manager, folder, architecture, directx_version, backup_enabled,
-            source=source_key, version=version_tag
+            source=source_key, version=version_tag, renderer_name=renderer_name
         )
         self.install_thread.log_signal.connect(self.log_message)
         self.install_thread.finished_signal.connect(self.on_installation_finished)
@@ -1484,17 +1597,18 @@ class DXVKManagerGUI:
         """Handle installation completion."""
         self.install_btn.setEnabled(True)
         self.uninstall_btn.setEnabled(True)
-        self.install_btn.setText("4. Install DXVK")
-        
+        renderer_name = self._current_renderer_name()
+        self.install_btn.setText(f"Install {renderer_name}")
+
         if success:
             DarkMessageBox.information(
-                self.window, 
-                "Installation Complete!", 
+                self.window,
+                "Installation Complete!",
                 f"{message}\n\n"
-                f"✓ DXVK has been installed successfully\n"
+                f"✓ {renderer_name} has been installed successfully\n"
                 f"✓ Original DLLs backed up to 'dxvk_backup' folder\n\n"
                 f"You can now launch your game.\n"
-                f"DXVK should improve graphics performance!"
+                f"{renderer_name} should improve graphics performance!"
             )
         else:
             DarkMessageBox.critical(

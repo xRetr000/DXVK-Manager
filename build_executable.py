@@ -45,6 +45,7 @@ def build_executable():
         "--name", "DXVK_Manager",
         "--hidden-import", "pefile",
         "--hidden-import", "requests",
+        "--hidden-import", "zstandard",
         # PyQt6 modules
         "--hidden-import", "PyQt6",
         "--hidden-import", "PyQt6.QtCore",
@@ -119,6 +120,7 @@ def main():
     try:
         import requests
         import pefile
+        import zstandard
         print("✓ Dependencies found")
     except ImportError:
         print("Installing required dependencies...")

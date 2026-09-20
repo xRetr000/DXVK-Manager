@@ -33,6 +33,7 @@ No Python, no dependencies, no setup.
 - **Auto-detection** — architecture (32-bit / 64-bit) and DirectX version are detected from the game's `.exe`, with a manual override if needed
 - **Multiple executables handled** — if a folder has several `.exe` files, you pick the right one instead of guessing wrong
 - **Choose your DXVK source and version** — install from the official [doitsujin/dxvk](https://github.com/doitsujin/dxvk) or the [GPLAsync](https://gitlab.com/Ph42oN/dxvk-gplasync) fork, and pick a specific release instead of always grabbing latest
+- **Direct3D 12 support via vkd3d-proton** — for D3D12 games (which DXVK doesn't cover), switch the renderer to [vkd3d-proton](https://github.com/HansKristian-Work/vkd3d-proton) and it installs `d3d12.dll` / `d3d12core.dll` the same way
 - **Built-in dxvk.conf editor** — tune HUD display, async shader compilation, frame rate cap, VRAM budget, Tear-Free, shader cache, and log level from a GUI, no text file editing
 - **PCGamingWiki integration** — jump straight to a game's compatibility page with one click
 - **Safe by design** — original DLLs are always backed up before anything is touched, and restored cleanly on uninstall
@@ -43,8 +44,8 @@ No Python, no dependencies, no setup.
 ## What it does
 
 1. You point it at a game folder
-2. It detects the architecture and DirectX version (or you set them manually)
-3. Downloads your chosen DXVK release (official or GPLAsync, latest or a specific version)
+2. It detects the architecture and DirectX version (or you set them manually) and picks the matching renderer — DXVK for D3D9/10/11, vkd3d-proton for D3D12
+3. Downloads your chosen release (DXVK official or GPLAsync, or vkd3d-proton; latest or a specific version)
 4. Backs up your existing DLLs and installs DXVK
 
 To uninstall, select the same folder and hit **Uninstall DXVK** — it restores your original files from backup.

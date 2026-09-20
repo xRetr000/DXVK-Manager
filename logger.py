@@ -30,13 +30,14 @@ class Logger:
         except (json.JSONDecodeError, ValueError):
             return []
 
-    def log_installation(self, game_path, architecture, directx_version, dxvk_version):
-        """Logs a DXVK installation event."""
+    def log_installation(self, game_path, architecture, directx_version, dxvk_version, renderer="DXVK"):
+        """Logs a DXVK / vkd3d-proton installation event."""
         log_entry = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "game_path": game_path,
             "architecture": architecture,
             "directx_version": directx_version,
+            "renderer": renderer,
             "dxvk_version": dxvk_version,
         }
         self._append_to_log(log_entry)

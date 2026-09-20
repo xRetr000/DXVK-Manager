@@ -31,6 +31,7 @@ dependencies = [
     "pefile>=2023.2.7",
     "requests>=2.31.0",
     "PyQt6>=6.6.0",
+    "zstandard>=0.22.0",
 ]
 
 

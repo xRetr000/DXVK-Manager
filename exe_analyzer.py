@@ -57,6 +57,7 @@ def detect_directx_version(game_folder):
         "d3d10.dll": "Direct3D 10",
         "d3d10core.dll": "Direct3D 10",
         "d3d11.dll": "Direct3D 11",
+        "d3d12.dll": "Direct3D 12",
     }
     found_versions = []
     for dll, version in dlls.items():

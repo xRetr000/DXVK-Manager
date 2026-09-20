@@ -1,7 +1,7 @@
 import os
 import tempfile
 from github_downloader import GithubDownloader, get_downloader
-from constants import DLL_MAP
+from constants import DLL_MAP, RENDERER_NAMES, RENDERER_DIRECTX_VERSIONS
 from file_manager import FileManager
 from logger import Logger
 
@@ -22,10 +22,14 @@ class DXVKManager:
     def install_dxvk(self, game_folder, architecture, directx_version, backup_enabled,
                       source='official', version=None):
         """
-        Main installation logic.
+        Main installation logic, shared by DXVK and vkd3d-proton.
 
-        source: 'official' (doitsujin/dxvk) or 'gplasync' (Ph42oN/dxvk-gplasync).
+        source: 'official' (doitsujin/dxvk), 'gplasync' (Ph42oN/dxvk-gplasync)
+                or 'vkd3d-proton' (HansKristian-Work/vkd3d-proton).
         version: a specific release tag_name to install, or None to use the latest.
+
+        The source determines the renderer (DXVK for D3D9/10/11, vkd3d-proton for D3D12),
+        and directx_version must be one that renderer actually covers.
         """
         try:
             # Validate inputs
@@ -44,30 +48,43 @@ class DXVKManager:
                 else:
                     raise ValueError(f"Invalid architecture: {architecture}")
             
-            # Step 1: Get DXVK release info for the chosen source/version
+            # Step 1: Get release info for the chosen source/version
             downloader = get_downloader(source)
             self.downloader = downloader  # keep in sync for any external callers
+            renderer_name = RENDERER_NAMES[downloader.renderer]
+
+            # A source only covers the DirectX versions of its renderer:
+            # DXVK → D3D9/10/11, vkd3d-proton → D3D12. Refuse mismatches up front
+            # rather than failing later with "no DLLs found in archive".
+            supported_versions = RENDERER_DIRECTX_VERSIONS[downloader.renderer]
+            if directx_version not in supported_versions:
+                raise ValueError(
+                    f"{renderer_name} does not support {directx_version}.\n\n"
+                    f"{renderer_name} covers: {', '.join(v for v in supported_versions if v != 'Unknown')}.\n"
+                    f"Use {'vkd3d-proton' if directx_version == 'Direct3D 12' else 'DXVK'} for {directx_version} games."
+                )
+
             if version:
-                print(f"Fetching DXVK release {version} from {downloader.source_name}...")
+                print(f"Fetching {renderer_name} release {version} from {downloader.source_name}...")
             else:
-                print(f"Fetching latest DXVK release from {downloader.source_name}...")
+                print(f"Fetching latest {renderer_name} release from {downloader.source_name}...")
             release_info = downloader.get_release_info(version)
             resolved_version = release_info['tag_name']
             download_url = release_info.get('download_url') or release_info.get('zipball_url')
             file_format = release_info.get('download_format', 'tar.gz')
-            
+
             if not download_url:
-                raise ValueError("Could not find download URL in release information. The DXVK release may not have a downloadable asset.")
-            
-            print(f"DXVK version: {resolved_version}")
+                raise ValueError(f"Could not find download URL in release information. The {renderer_name} release may not have a downloadable asset.")
+
+            print(f"{renderer_name} version: {resolved_version}")
             print(f"Download URL: {download_url}")
             print(f"File format: {file_format}")
-            
+
             # Step 2: Create temporary directory for extraction
             with tempfile.TemporaryDirectory() as temp_dir:
-                print(f"Extracting DXVK to temporary directory: {temp_dir}")
-                
-                # Step 3: Download and extract DXVK
+                print(f"Extracting {renderer_name} to temporary directory: {temp_dir}")
+
+                # Step 3: Download and extract the DLLs
                 downloader.download_and_extract_dxvk(download_url, temp_dir, architecture, directx_version, file_format)
                 
                 # Step 4: Determine which DLLs to install
@@ -85,7 +102,7 @@ class DXVKManager:
                 
                 # If we have at least some DLLs extracted, proceed (especially for Unknown case)
                 if not extracted_dlls:
-                    raise ValueError(f"Failed to extract any required DLLs. Missing: {', '.join(missing_dlls)}. The DXVK release may have a different structure.")
+                    raise ValueError(f"Failed to extract any required DLLs. Missing: {', '.join(missing_dlls)}. The {renderer_name} release may have a different structure.")
                 
                 # Warn about missing DLLs but don't fail if we have some
                 if missing_dlls:
@@ -98,8 +115,8 @@ class DXVKManager:
                     print("Creating backup of existing DLLs...")
                     self.file_manager.backup_dlls(game_folder, dlls_to_install)
                 
-                # Step 6: Copy DXVK DLLs to game folder
-                print("Installing DXVK DLLs...")
+                # Step 6: Copy the DLLs to game folder
+                print(f"Installing {renderer_name} DLLs...")
                 self.file_manager.copy_dlls(temp_dir, game_folder, dlls_to_install)
                 
                 # Verify installation
@@ -122,9 +139,10 @@ class DXVKManager:
                     )
                 
                 # Step 7: Log the installation
-                self.logger.log_installation(game_folder, architecture, directx_version, resolved_version)
-                
-                print(f"DXVK installation completed successfully! Installed: {', '.join(installed_dlls)}")
+                self.logger.log_installation(game_folder, architecture, directx_version, resolved_version,
+                                             renderer=renderer_name)
+
+                print(f"{renderer_name} installation completed successfully! Installed: {', '.join(installed_dlls)}")
                 return True
                 
         except Exception as e:
@@ -134,7 +152,7 @@ class DXVKManager:
             return False
 
     def uninstall_dxvk(self, game_folder):
-        """Uninstalls DXVK by restoring backups."""
+        """Uninstalls DXVK / vkd3d-proton by restoring backups."""
         try:
             return self.file_manager.restore_dlls(game_folder)
         except Exception as e:
