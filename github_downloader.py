@@ -34,15 +34,19 @@ class ArchiveDownloader:
                             self._write(source, destination, os.path.basename(name))
         elif fmt in ("tar.gz", "tgz", "gz"):
             with tarfile.open(fileobj=io.BytesIO(response.content), mode="r:gz") as archive:
-                self._extract_tar(archive, destination, subfolder, dlls)
+                self._extract_tar_members(archive, destination, subfolder, dlls)
         elif fmt in ("tar.zst", "tzst", "zst"):
             try:
                 import zstandard
             except ImportError as exc:
                 raise RuntimeError("Install the zstandard dependency to use vkd3d-proton.") from exc
-            with zstandard.ZstdDecompressor().stream_reader(io.BytesIO(response.content)) as reader:
+
+            # Feed the compressed HTTP body directly into zstandard and tarfile.
+            # This avoids materializing the decompressed tar in memory.
+            response.raw.decode_content = True
+            with zstandard.ZstdDecompressor().stream_reader(response.raw) as reader:
                 with tarfile.open(fileobj=reader, mode="r|") as archive:
-                    self._extract_tar(archive, destination, subfolder, dlls)
+                    self._extract_tar_members(archive, destination, subfolder, dlls)
         else:
             raise ValueError("Unsupported release archive format: " + file_format)
 
@@ -52,19 +56,29 @@ class ArchiveDownloader:
         return ("/" + subfolder.lower() + "/") in normalized and \
             os.path.basename(name).lower() in {dll.lower() for dll in dlls}
 
-    def _extract_tar(self, archive, destination, subfolder, dlls):
+    def _extract_tar_members(self, archive, destination, subfolder, dlls):
+        """Extract matching DLL members from a sequential tar stream."""
         for member in archive:
-            if member.isfile() and self._matches(member.name, subfolder, dlls):
-                source = archive.extractfile(member)
-                if source:
-                    with source:
-                        self._write(source, destination, os.path.basename(member.name))
+            if not member.isfile() or not self._matches(member.name, subfolder, dlls):
+                continue
+            source = archive.extractfile(member)
+            if source:
+                with source:
+                    self._write(source, destination, os.path.basename(member.name))
+
+    # Backward-compatible name for callers that used the previous helper.
+    def _extract_tar(self, archive, destination, subfolder, dlls):
+        self._extract_tar_members(archive, destination, subfolder, dlls)
 
     @staticmethod
     def _write(source, destination, filename):
         path = os.path.join(destination, filename)
         with open(path, "wb") as target:
-            target.write(source.read())
+            while True:
+                chunk = source.read(1024 * 1024)
+                if not chunk:
+                    break
+                target.write(chunk)
         print("Extracted " + filename + " to " + destination)
 
 
