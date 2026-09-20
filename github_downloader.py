@@ -41,8 +41,8 @@ class ArchiveDownloader:
             except ImportError as exc:
                 raise RuntimeError("Install the zstandard dependency to use vkd3d-proton.") from exc
 
-            # Feed the compressed HTTP body directly into zstandard and tarfile.
-            # This avoids materializing the decompressed tar in memory.
+            # Stream zstd data directly into tarfile instead of buffering the
+            # entire decompressed archive in memory.
             response.raw.decode_content = True
             with zstandard.ZstdDecompressor().stream_reader(response.raw) as reader:
                 with tarfile.open(fileobj=reader, mode="r|") as archive:
@@ -66,7 +66,7 @@ class ArchiveDownloader:
                 with source:
                     self._write(source, destination, os.path.basename(member.name))
 
-    # Backward-compatible name for callers that used the previous helper.
+    # Preserve the helper name used by older callers.
     def _extract_tar(self, archive, destination, subfolder, dlls):
         self._extract_tar_members(archive, destination, subfolder, dlls)
 
