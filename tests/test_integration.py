@@ -1,93 +1,78 @@
-#!/usr/bin/env python3
 """
-Integration test for DXVK Manager Tool
-Simulates the main workflow without downloading files or modifying system files.
+End-to-end workflow: detect → install → re-install (upgrade) → uninstall,
+against a fake game folder and in-memory release archives. No network, no
+changes outside the temp folder.
 """
-
 import os
-import tempfile
-import shutil
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+from conftest import make_archive, make_minimal_pe
 from dxvk_manager import DXVKManager
-from exe_analyzer import get_exe_architecture, detect_directx_version
+from exe_analyzer import detect_directx_version, get_exe_architecture
+from logger import Logger
 
-def test_integration():
-    """Test the complete workflow of the DXVK Manager."""
-    print("Starting integration test...")
 
-    with tempfile.TemporaryDirectory() as temp_game_dir:
-        print(f"Created temporary game directory: {temp_game_dir}")
+def _payload(sub, dll):
+    return f"{sub}/{dll}".encode()
 
-        fake_exe = os.path.join(temp_game_dir, "game.exe")
-        with open(fake_exe, "wb") as f:
-            f.write(b"MZ")
-            f.write(b"\x00" * 58)
-            f.write(b"\x3c\x00\x00\x00")
-            f.write(b"\x00" * 60)
-            f.write(b"PE\x00\x00")
-            f.write(b"\x4c\x01")  # i386 (32-bit)
 
-        d3d11_dll = os.path.join(temp_game_dir, "d3d11.dll")
-        with open(d3d11_dll, "w") as f:
-            f.write("fake d3d11.dll content")
+def _serve(releases_by_tag, archives_by_url):
+    def fake_get(url, **kwargs):
+        resp = MagicMock()
+        resp.raise_for_status = lambda: None
+        if "api.github.com" in url:
+            tag = url.rsplit("/", 1)[-1]
+            resp.json = lambda: releases_by_tag["latest" if tag == "latest" else tag]
+        else:
+            resp.content = archives_by_url[url]
+        return resp
+    return patch("github_downloader.requests.get", side_effect=fake_get)
 
-        print("Created fake game files")
 
-        try:
-            arch = get_exe_architecture(fake_exe)
-            print(f"Architecture detection result: {arch}")
-        except Exception as e:
-            print(f"Architecture detection failed (expected for fake PE): {e}")
-            arch = "32-bit"
+def test_full_workflow(tmp_path):
+    game = str(tmp_path)
+    exe = make_minimal_pe(os.path.join(game, "game.exe"), 0x14C)
+    with open(os.path.join(game, "d3d11.dll"), "wb") as f:
+        f.write(b"ORIGINAL")
 
-        dx_versions = detect_directx_version(temp_game_dir)
-        print(f"DirectX detection result: {dx_versions}")
+    # Detection
+    assert get_exe_architecture(exe) == "32-bit"
+    assert detect_directx_version(game, exe) == ["Direct3D 11"]  # from shipped DLL
 
-        manager = DXVKManager()
+    manager = DXVKManager()
+    manager.logger = Logger(str(tmp_path / "log.json"))
 
-        with patch.object(manager.downloader, 'get_latest_release_info') as mock_release_info, \
-             patch.object(manager.downloader, 'download_and_extract_dxvk') as mock_download:
+    dxvk_dlls = ["d3d9.dll", "d3d10core.dll", "d3d11.dll", "dxgi.dll"]
+    releases = {
+        "v2.6": {"tag_name": "v2.6", "assets": [{"name": "dxvk-2.6.tar.gz", "browser_download_url": "http://dl/2.6"}]},
+        "latest": {"tag_name": "v2.7", "assets": [{"name": "dxvk-2.7.zip", "browser_download_url": "http://dl/2.7"}]},
+    }
+    archives = {
+        "http://dl/2.6": make_archive("tar.gz", "dxvk-2.6", ["x32", "x64"], dxvk_dlls, lambda s, d: f"2.6 {s}/{d}".encode()),
+        "http://dl/2.7": make_archive("zip", "dxvk-2.7", ["x32", "x64"], dxvk_dlls, lambda s, d: f"2.7 {s}/{d}".encode()),
+    }
 
-            mock_release_info.return_value = {
-                'tag_name': 'v2.3',
-                'zipball_url': 'https://fake-url.com/dxvk.zip'
-            }
+    with _serve(releases, archives):
+        # Install a specific version
+        assert manager.install_dxvk(game, "32-bit", "Direct3D 11", True, source="official", version="v2.6")
+        assert open(os.path.join(game, "d3d11.dll"), "rb").read() == b"2.6 x32/d3d11.dll"
+        assert open(os.path.join(game, "dxvk_backup", "d3d11.dll"), "rb").read() == b"ORIGINAL"
 
-            def mock_extract(download_url, extract_path, arch, directx_version, file_format='tar.gz'):
-                for dll in ['d3d11.dll', 'dxgi.dll']:
-                    with open(os.path.join(extract_path, dll), "w") as f:
-                        f.write(f"fake DXVK {dll} content")
-                print(f"Mocked extraction of DXVK DLLs to {extract_path}")
+        # Re-detection must not be fooled by the DXVK DLL we just placed there
+        assert detect_directx_version(game, exe) == ["Unknown"]
 
-            mock_download.side_effect = mock_extract
+        # Upgrade to latest without uninstalling first
+        assert manager.install_dxvk(game, "32-bit", "Direct3D 11", True, source="official", version=None)
+        assert open(os.path.join(game, "d3d11.dll"), "rb").read() == b"2.7 x32/d3d11.dll"
+        assert open(os.path.join(game, "dxvk_backup", "d3d11.dll"), "rb").read() == b"ORIGINAL"
 
-            print("Testing DXVK installation...")
-            success = manager.install_dxvk(
-                game_folder=temp_game_dir,
-                architecture=arch,
-                directx_version="Direct3D 11",
-                backup_enabled=True
-            )
+    logs = manager.logger.get_logs()
+    assert [e["dxvk_version"] for e in logs] == ["v2.6", "v2.7"]
+    assert all(e["renderer"] == "DXVK" for e in logs)
 
-            if success:
-                print("✓ Installation test passed")
-                backup_dir = os.path.join(temp_game_dir, "dxvk_backup")
-                if os.path.exists(backup_dir):
-                    print("✓ Backup creation test passed")
-                else:
-                    print("✗ Backup creation test failed")
-
-                print("Testing DXVK uninstallation...")
-                uninstall_success = manager.uninstall_dxvk(temp_game_dir)
-                if uninstall_success:
-                    print("✓ Uninstallation test passed")
-                else:
-                    print("✗ Uninstallation test failed")
-            else:
-                print("✗ Installation test failed")
-
-        print("Integration test completed")
-
-if __name__ == "__main__":
-    test_integration()
+    # Uninstall restores the original and removes everything we added
+    assert manager.uninstall_dxvk(game)
+    assert open(os.path.join(game, "d3d11.dll"), "rb").read() == b"ORIGINAL"
+    assert not os.path.exists(os.path.join(game, "dxgi.dll"))
+    assert not os.path.exists(os.path.join(game, "dxvk_backup"))
+    assert manager.uninstall_dxvk(game) is False  # nothing left to restore

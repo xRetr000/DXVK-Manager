@@ -213,16 +213,18 @@ class DetectionThread(QThread):
 
             # Analyze architecture and DirectX
             try:
-                from exe_analyzer import get_exe_architecture, detect_directx_version
+                from exe_analyzer import get_exe_architecture, detect_directx_details
                 arch = get_exe_architecture(exe_path)
                 self.log_signal.emit(f"Architecture detected: {arch}")
-                
-                dx_versions = detect_directx_version(self.folder)
+
+                dx_info = detect_directx_details(os.path.dirname(exe_path), exe_path)
+                dx_versions = dx_info["versions"]
                 if dx_versions and dx_versions[0] != "Unknown":
                     dx_text = ", ".join(dx_versions)
+                    self.log_signal.emit(f"DirectX versions detected: {dx_text} (via {dx_info['method']})")
                 else:
                     dx_text = "Not detected"
-                self.log_signal.emit(f"DirectX versions detected: {dx_text}")
+                    self.log_signal.emit("DirectX version not detected. Use the Override dropdown to pick one.")
                 
                 self.detected_signal.emit(arch, dx_text)
                 
@@ -1454,17 +1456,19 @@ class DXVKManagerGUI:
     def run_detection_with_exe(self, exe_path):
         """Run architecture detection on a specific exe the user picked."""
         try:
-            from exe_analyzer import get_exe_architecture, detect_directx_version
+            from exe_analyzer import get_exe_architecture, detect_directx_details
             arch = get_exe_architecture(exe_path)
             self.log_message(f"Architecture detected: {arch}")
 
             folder = os.path.dirname(exe_path)
-            dx_versions = detect_directx_version(folder)
+            dx_info = detect_directx_details(folder, exe_path)
+            dx_versions = dx_info["versions"]
             if dx_versions and dx_versions[0] != "Unknown":
                 dx_text = ", ".join(dx_versions)
+                self.log_message(f"DirectX versions detected: {dx_text} (via {dx_info['method']})")
             else:
                 dx_text = "Not detected"
-            self.log_message(f"DirectX versions detected: {dx_text}")
+                self.log_message("DirectX version not detected. Use the Override dropdown to pick one.")
 
             self.on_detection_complete(arch, dx_text)
         except Exception as e:

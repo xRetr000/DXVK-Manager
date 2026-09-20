@@ -5,6 +5,7 @@ import os
 import shutil
 import ctypes
 import sys
+import tempfile
 
 MANIFEST_FILE = "installed_dlls.txt"
 
@@ -39,26 +40,47 @@ class FileManager:
         self.long_path_support = check_long_path_support()
         self.is_admin = is_admin()
 
+    @staticmethod
+    def can_write_to(directory):
+        """Checks real write access by creating and removing a temporary file."""
+        try:
+            fd, probe = tempfile.mkstemp(prefix=".dxvk_manager_probe_", dir=directory)
+            os.close(fd)
+            os.remove(probe)
+            return True
+        except OSError:
+            return False
+
+    @staticmethod
+    def _is_under_program_files(directory):
+        """True if directory lives under any Program Files root (case-insensitive)."""
+        roots = [
+            os.path.expandvars(v) for v in ("%ProgramFiles%", "%ProgramFiles(x86)%", "%ProgramW6432%")
+        ]
+        target = os.path.normcase(os.path.abspath(directory))
+        return any(
+            r and not r.startswith("%") and target.startswith(os.path.normcase(os.path.abspath(r)) + os.sep)
+            for r in roots
+        )
+
     def copy_dlls(self, source_dir, target_dir, dll_names):
         """
         Copies specified DLLs from source to target directory.
         Windows-specific: Handles permissions, UAC, and long paths.
         """
-        program_files_paths = [
-            os.path.expandvars("%ProgramFiles%"),
-            os.path.expandvars("%ProgramFiles(x86)%"),
-            os.path.expandvars("%ProgramW6432%"),
-        ]
-        needs_admin = any(target_dir.startswith(pf) for pf in program_files_paths if pf)
-
-        if needs_admin and not self.is_admin:
-            raise PermissionError(
-                f"Game folder is in Program Files. Administrator privileges required.\n\n"
-                f"Please run DXVK Manager as Administrator:\n"
-                f"1. Right-click DXVK_Manager.exe\n"
-                f"2. Select 'Run as administrator'\n"
-                f"3. Try again"
-            )
+        # Probe for write access instead of guessing from the path: many folders
+        # under Program Files (e.g. Steam's library) are user-writable, and
+        # os.access() doesn't reflect Windows ACLs reliably.
+        if not self.can_write_to(target_dir):
+            hint = ""
+            if self._is_under_program_files(target_dir) and not self.is_admin:
+                hint = (
+                    "\n\nThe game folder is in Program Files, so administrator privileges are likely required:\n"
+                    "1. Right-click DXVK_Manager.exe\n"
+                    "2. Select 'Run as administrator'\n"
+                    "3. Try again"
+                )
+            raise PermissionError(f"Cannot write to game folder: {target_dir}{hint}")
 
         copied_files = []
         for dll in dll_names:
@@ -83,12 +105,6 @@ class FileManager:
                             f"Try running as Administrator if the game is in Program Files."
                         )
 
-                if not os.access(target_dir, os.W_OK):
-                    raise PermissionError(
-                        f"Cannot write to game folder: {target_dir}\n\n"
-                        f"This folder may require administrator privileges.\n"
-                        f"Try running DXVK Manager as Administrator."
-                    )
 
                 shutil.copy2(source_path, target_path)
 
@@ -109,10 +125,27 @@ class FileManager:
 
         return copied_files
 
+    def read_manifest(self, target_dir):
+        """Returns the list of DLLs recorded as installed in target_dir, or [] if none."""
+        manifest_path = os.path.join(target_dir, "dxvk_backup", MANIFEST_FILE)
+        if not os.path.exists(manifest_path):
+            return []
+        try:
+            with open(manifest_path, "r") as f:
+                return [line.strip() for line in f if line.strip()]
+        except Exception as e:
+            print(f"Warning: Could not read manifest: {e}")
+            return []
+
     def backup_dlls(self, target_dir, dll_names):
         """
         Creates a backup of existing DLLs in a subfolder and saves a manifest
         of all DLLs being installed so uninstall knows what to remove.
+
+        Safe to call again on a folder that already has a backup (e.g. upgrading
+        DXVK, or adding vkd3d-proton next to DXVK): the first backup of each DLL
+        is kept, since anything already in the game folder after that is ours,
+        and the manifest is merged rather than overwritten.
         """
         backup_dir = os.path.join(target_dir, "dxvk_backup")
 
@@ -126,32 +159,44 @@ class FileManager:
             )
 
         # Save a manifest of which DLLs are being installed
-        # so uninstall knows exactly what to remove even if no originals existed
+        # so uninstall knows exactly what to remove even if no originals existed.
+        # Merge with any previous install so nothing gets orphaned on uninstall.
+        previously_installed = self.read_manifest(target_dir)
+        manifest_dlls = previously_installed + [d for d in dll_names if d not in previously_installed]
         manifest_path = os.path.join(backup_dir, MANIFEST_FILE)
         try:
             with open(manifest_path, "w") as f:
-                for dll in dll_names:
+                for dll in manifest_dlls:
                     f.write(dll + "\n")
-            print(f"Saved install manifest: {dll_names}")
+            print(f"Saved install manifest: {manifest_dlls}")
         except Exception as e:
             raise IOError(f"Failed to write install manifest: {str(e)}")
 
-        # Back up any original DLLs that already exist in the game folder
+        # Back up any original DLLs that already exist in the game folder.
+        # A DLL we previously installed is NOT an original, so never overwrite an
+        # existing backup and never back up something our own manifest lists.
         backed_up_files = []
+        skipped_files = []
         for dll in dll_names:
             source_path = os.path.join(target_dir, dll)
-            if os.path.exists(source_path):
-                try:
-                    backup_path = os.path.join(backup_dir, dll)
-                    shutil.copy2(source_path, backup_path)
-                    backed_up_files.append(dll)
-                    print(f"Backed up {dll} to {backup_dir}")
-                except Exception as e:
-                    raise IOError(f"Failed to backup {dll}: {str(e)}")
+            backup_path = os.path.join(backup_dir, dll)
+            if not os.path.exists(source_path):
+                continue
+            if os.path.exists(backup_path) or dll in previously_installed:
+                skipped_files.append(dll)
+                continue
+            try:
+                shutil.copy2(source_path, backup_path)
+                backed_up_files.append(dll)
+                print(f"Backed up {dll} to {backup_dir}")
+            except Exception as e:
+                raise IOError(f"Failed to backup {dll}: {str(e)}")
 
+        if skipped_files:
+            print(f"Kept existing backup for: {', '.join(skipped_files)} (already installed by DXVK Manager)")
         if backed_up_files:
             print(f"Created backup of {len(backed_up_files)} file(s) in {backup_dir}")
-        else:
+        elif not skipped_files:
             print("No original DLLs found to back up (game didn't have them). Manifest saved for clean uninstall.")
 
         return backed_up_files
@@ -174,15 +219,9 @@ class FileManager:
             return False
 
         # Read the manifest to know which DLLs were installed
-        manifest_path = os.path.join(backup_dir, MANIFEST_FILE)
-        installed_dlls = []
-        if os.path.exists(manifest_path):
-            try:
-                with open(manifest_path, "r") as f:
-                    installed_dlls = [line.strip() for line in f if line.strip()]
-                print(f"Manifest found. DLLs to remove: {installed_dlls}")
-            except Exception as e:
-                print(f"Warning: Could not read manifest: {e}")
+        installed_dlls = self.read_manifest(game_folder)
+        if installed_dlls:
+            print(f"Manifest found. DLLs to remove: {installed_dlls}")
         else:
             print("Warning: No manifest found. Will only restore backed-up files.")
 
