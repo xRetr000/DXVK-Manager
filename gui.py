@@ -8,9 +8,9 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QLineEdit, QTextEdit, QComboBox, QCheckBox,
     QFileDialog, QMessageBox, QFrame, QScrollArea, QDialog,
-    QTabWidget, QSpinBox, QListWidget
+    QTabWidget, QSpinBox, QListWidget, QSplitter
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QSettings
 from PyQt6.QtGui import QFont, QPalette, QColor, QIcon
 from constants import RENDERER_DXVK, RENDERER_VKD3D, RENDERER_NAMES
 
@@ -241,8 +241,11 @@ class ModernCard(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFrameShape(QFrame.Shape.StyledPanel)
+        # Scope to this widget only — an unscoped QFrame rule would cascade to
+        # every child QLabel (which derives from QFrame) and box the text.
+        self.setObjectName("modernCard")
         self.setStyleSheet("""
-            QFrame {
+            QFrame#modernCard {
                 background-color: #2D2D2D;
                 border-radius: 8px;
                 border: 1px solid #404040;
@@ -475,8 +478,9 @@ class DXVKManagerGUI:
         self.window = QMainWindow()
         self.window.setWindowTitle("DXVK Manager")
         self.window.setWindowIcon(icon)
-        self.window.setMinimumSize(900, 650)
-        self.window.resize(1000, 700)
+        self.window.setMinimumSize(900, 600)
+        self.window.resize(1100, 720)
+        self.settings = QSettings("xRetr000", "DXVK Manager")
         
         # Enable Windows 11 rounded corners and modern look
         self.window.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
@@ -487,24 +491,43 @@ class DXVKManagerGUI:
         central_widget = QWidget()
         self.window.setCentralWidget(central_widget)
         
-        # Main layout (horizontal split)
+        # Main layout: controls | activity log, in a user-resizable splitter
         main_layout = QHBoxLayout(central_widget)
-        main_layout.setSpacing(15)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        
-        # Left panel - Controls
-        left_panel = self.create_left_panel()
-        main_layout.addWidget(left_panel, 0)
-        
-        # Right panel - Logs
-        right_panel = self.create_right_panel()
-        main_layout.addWidget(right_panel, 1)
+        main_layout.setContentsMargins(16, 16, 16, 16)
+
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.setChildrenCollapsible(False)
+        self.splitter.setHandleWidth(10)
+        self.splitter.setStyleSheet("QSplitter::handle { background: transparent; }")
+        self.splitter.addWidget(self.create_left_panel())
+        self.splitter.addWidget(self.create_right_panel())
+        self.splitter.setStretchFactor(0, 3)
+        self.splitter.setStretchFactor(1, 2)
+        main_layout.addWidget(self.splitter)
+
+        self._restore_window_state()
+        self.app.aboutToQuit.connect(self._save_window_state)
         
         # Threads
         self.install_thread = None
         self.detect_thread = None
         self.current_folder = None
     
+    def _restore_window_state(self):
+        """Restore window size/position and splitter split from the previous session."""
+        geometry = self.settings.value("window/geometry")
+        if geometry is not None:
+            self.window.restoreGeometry(geometry)
+        splitter_state = self.settings.value("window/splitter")
+        if splitter_state is not None:
+            self.splitter.restoreState(splitter_state)
+        else:
+            self.splitter.setSizes([600, 400])
+
+    def _save_window_state(self):
+        self.settings.setValue("window/geometry", self.window.saveGeometry())
+        self.settings.setValue("window/splitter", self.splitter.saveState())
+
     def apply_windows11_theme(self):
         """Apply Windows 11 native theme with system colors."""
         import winreg
@@ -544,6 +567,12 @@ class DXVKManagerGUI:
                 background-color: #2D2D2D;
                 border-radius: 8px;
                 border: none;
+            }
+            /* QLabel derives from QFrame — keep text labels flat, not boxed */
+            QLabel {
+                background: transparent;
+                border: none;
+                border-radius: 0;
             }
             QPushButton {
                 border-radius: 6px;
@@ -626,17 +655,15 @@ class DXVKManagerGUI:
         install_tab.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(install_tab)
         layout.setSpacing(15)
-        layout.setContentsMargins(0, 12, 6, 12)
+        layout.setContentsMargins(0, 8, 10, 8)
 
         install_scroll.setWidget(install_tab)
-        install_outer_layout.addWidget(install_scroll)
+        install_outer_layout.addWidget(install_scroll, 1)
 
         # Use the shared card/row helpers so Install matches Config Editor's look
         make_group = self._make_group
         row = self._add_row
         COMBO_STYLE = self._COMBO_STYLE
-        CHECK_STYLE = self._CHECK_STYLE
-
         layout.setSpacing(10)
 
         # ── Game folder card ─────────────────────────────────
@@ -772,26 +799,12 @@ class DXVKManagerGUI:
         self._release_fetch_thread = None
         self._fetch_releases_for_source(self.source_combo.currentData())
 
-        # ── Safety card ───────────────────────────────────────
-        card_safety, g_safety = make_group("SAFETY")
-        backup_row = QHBoxLayout()
-        backup_row.setSpacing(6)
-        self.backup_checkbox = QCheckBox("Create backup before installing")
-        self.backup_checkbox.setChecked(True)
-        self.backup_checkbox.setEnabled(False)  # Locked on — always backs up for safety
-        self.backup_checkbox.setStyleSheet(CHECK_STYLE)
-        backup_row.addWidget(self.backup_checkbox)
-        lock_lbl = QLabel("🔒 Always on")
-        lock_lbl.setStyleSheet("color: #6E9E7E; font-size: 8pt; font-weight: 600;")
-        lock_lbl.setToolTip("Backup can't be disabled — this keeps your original DLLs safe to restore anytime.")
-        backup_row.addWidget(lock_lbl)
-        backup_row.addStretch()
-        g_safety.addLayout(backup_row)
-        layout.addWidget(card_safety)
+        layout.addStretch()
 
-        # ── Action buttons ────────────────────────────────────
+        # ── Action buttons — outside the scroll area so they're always visible ──
         button_layout = QVBoxLayout()
         button_layout.setSpacing(8)
+        button_layout.setContentsMargins(0, 10, 10, 0)
 
         self.install_btn = QPushButton("Install DXVK")
         self.install_btn.setToolTip("Downloads and installs the selected renderer's DLLs to your game folder")
@@ -821,8 +834,13 @@ class DXVKManagerGUI:
         self.uninstall_btn.clicked.connect(self.uninstall_dxvk)
         button_layout.addWidget(self.uninstall_btn)
 
-        layout.addLayout(button_layout)
-        layout.addStretch()
+        backup_note = QLabel("Original DLLs are always backed up to dxvk_backup before installing.")
+        backup_note.setStyleSheet("color: #6E6E6E; font-size: 8pt;")
+        backup_note.setWordWrap(True)
+        backup_note.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        button_layout.addWidget(backup_note)
+
+        install_outer_layout.addLayout(button_layout, 0)
 
         self.left_tabs.addTab(install_outer, "Install")
         self.left_tabs.addTab(self._create_conf_tab(), "Config Editor")
@@ -858,25 +876,33 @@ class DXVKManagerGUI:
         QCheckBox::indicator:checked { background-color: #00A2FF; border: 2px solid #00A2FF; }
         QCheckBox::indicator:hover { border-color: #00A2FF; }
         QCheckBox::indicator:disabled { background-color: #2A2A2A; border: 2px solid #2E2E2E; }"""
-    _ROW_LABEL_STYLE = "color: #C8C8C8; font-size: 9.5pt; font-weight: 500;"
+    _ROW_LABEL_STYLE = "color: #B8B8B8; font-size: 9.5pt;"
     _GROUP_TITLE_STYLE = "color: #00A2FF; font-size: 8.5pt; font-weight: 700; letter-spacing: 0.5px;"
 
     def _make_group(self, title):
-        """A flat card-style section container with a small header. Returns (card, inner_layout)."""
-        card = QFrame()
-        card.setStyleSheet("""
-            QFrame { background-color: #1E1E1E; border: 1px solid #2E2E2E; border-radius: 8px; }
-        """)
-        card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(14, 12, 14, 12)
-        card_layout.setSpacing(10)
+        """A flat section: small uppercase header with a hairline under it, then rows.
+        Returns (section_widget, inner_layout)."""
+        section = QWidget()
+        section.setStyleSheet("background: transparent;")
+        section_layout = QVBoxLayout(section)
+        section_layout.setContentsMargins(0, 0, 0, 2)
+        section_layout.setSpacing(6)
+
         header = QLabel(title)
         header.setStyleSheet(self._GROUP_TITLE_STYLE)
-        card_layout.addWidget(header)
+        section_layout.addWidget(header)
+
+        rule = QFrame()
+        rule.setFrameShape(QFrame.Shape.HLine)
+        rule.setFixedHeight(1)
+        rule.setStyleSheet("QFrame { background-color: #333333; border: none; border-radius: 0; }")
+        section_layout.addWidget(rule)
+
         grid = QVBoxLayout()
-        grid.setSpacing(10)
-        card_layout.addLayout(grid)
-        return card, grid
+        grid.setSpacing(6)
+        grid.setContentsMargins(0, 2, 0, 0)
+        section_layout.addLayout(grid)
+        return section, grid
 
     def _add_row(self, grid, label_text, widget, hint_text=None):
         """A single compact label+control row, optional one-line hint."""
@@ -884,8 +910,7 @@ class DXVKManagerGUI:
         r.setSpacing(8)
         lbl = QLabel(label_text)
         lbl.setStyleSheet(self._ROW_LABEL_STYLE)
-        lbl.setMinimumWidth(108)
-        lbl.setWordWrap(True)
+        lbl.setFixedWidth(112)
         r.addWidget(lbl, 0)
         r.addWidget(widget, 1)
         widget.setMinimumHeight(26)
@@ -923,11 +948,11 @@ class DXVKManagerGUI:
         tab = QWidget()
         tab.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(tab)
-        layout.setSpacing(10)
-        layout.setContentsMargins(0, 10, 6, 10)
+        layout.setSpacing(14)
+        layout.setContentsMargins(0, 10, 10, 10)
 
         scroll.setWidget(tab)
-        outer_layout.addWidget(scroll)
+        outer_layout.addWidget(scroll, 1)
 
         # Status pill
         self.conf_status = QLabel("No game folder selected.")
@@ -1016,9 +1041,10 @@ class DXVKManagerGUI:
 
         layout.addStretch()
 
-        # Buttons
+        # Buttons — outside the scroll area so they're always visible
         btn_row = QHBoxLayout()
         btn_row.setSpacing(8)
+        btn_row.setContentsMargins(0, 10, 10, 0)
         save_btn = QPushButton("Save Config")
         save_btn.setStyleSheet("""
             QPushButton { background:#0078D4; color:white; border:none;
@@ -1035,12 +1061,9 @@ class DXVKManagerGUI:
         btn_row.addWidget(save_btn)
         btn_row.addWidget(reset_btn)
         btn_row.addStretch()
-        layout.addLayout(btn_row)
+        outer_layout.addLayout(btn_row, 0)
 
         return outer_tab
-        lbl = QLabel(text)
-        lbl.setStyleSheet(style)
-        return lbl
 
     def _on_hud_changed(self, value):
         self.conf_hud_custom.setVisible(value == "Custom")
@@ -1301,12 +1324,8 @@ class DXVKManagerGUI:
         layout.setSpacing(10)
         
         # Title
-        log_title = QLabel("Activity Log")
-        log_title_font = QFont()
-        log_title_font.setPointSize(14)
-        log_title_font.setBold(True)
-        log_title.setFont(log_title_font)
-        log_title.setStyleSheet("color: #FFFFFF; margin-bottom: 5px;")
+        log_title = QLabel("ACTIVITY LOG")
+        log_title.setStyleSheet(self._GROUP_TITLE_STYLE)
         layout.addWidget(log_title)
         
         # Log text area
