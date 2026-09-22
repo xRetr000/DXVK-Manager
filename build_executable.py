@@ -8,8 +8,50 @@ Or double-click: BUILD.bat (Windows)
 """
 
 import os
+import shutil
+import stat
 import subprocess
 import sys
+import time
+
+def pause(message="Press Enter to exit..."):
+    """Waits for the user, but doesn't crash when stdin isn't a terminal (CI, piped output)."""
+    try:
+        input(message)
+    except (EOFError, KeyboardInterrupt):
+        pass
+
+def remove_build_dirs():
+    """
+    Deletes the build/ and dist/ folders before building.
+
+    PyInstaller's own --clean does this too, but it aborts the whole build if a
+    folder is momentarily locked (antivirus or Explorer scanning a freshly
+    written file is enough). Retrying a few times clears it.
+    """
+    def on_error(func, path, exc_info):
+        # Read-only files need the flag cleared before they can be removed
+        try:
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+        except Exception:
+            pass
+
+    for folder in ("build", "dist"):
+        if not os.path.exists(folder):
+            continue
+        for attempt in range(5):
+            shutil.rmtree(folder, onerror=on_error)
+            if not os.path.exists(folder):
+                print(f"Removed old {folder}/ folder")
+                break
+            time.sleep(1)
+        else:
+            print(
+                f"WARNING: Could not fully remove {folder}/ — a program may have a file open.\n"
+                f"         Close Explorer windows / the running DXVK_Manager.exe and try again\n"
+                f"         if the build fails."
+            )
 
 def install_pyinstaller():
     """Install PyInstaller if not already installed."""
@@ -23,7 +65,11 @@ def install_pyinstaller():
 def build_executable():
     """Build the standalone executable."""
     print("Building DXVK Manager executable...")
-    
+
+    # Clear previous build output ourselves so a locked leftover folder doesn't
+    # abort PyInstaller before it compiles anything
+    remove_build_dirs()
+
     # Remove old spec file if it exists to force regeneration with new hidden imports
     spec_file = "DXVK_Manager.spec"
     if os.path.exists(spec_file):
@@ -112,7 +158,7 @@ def main():
         print("ERROR: dxvk_manager.py not found!")
         print("Please run this script from the project directory.")
         print()
-        input("Press Enter to exit...")
+        pause()
         return False
     
     # Check if dependencies are installed
@@ -130,7 +176,7 @@ def main():
         except subprocess.CalledProcessError:
             print("ERROR: Failed to install dependencies!")
             print("Please run: pip install -r requirements.txt")
-            input("Press Enter to exit...")
+            pause()
             return False
     
     print()
@@ -164,9 +210,10 @@ def main():
     
     # Wait for user input on Windows (in case run from double-click)
     if sys.platform == "win32":
-        input("Press Enter to exit...")
+        pause()
     
     return success
 
 if __name__ == "__main__":
-    main()
+    # Exit non-zero on failure so BUILD.bat's errorlevel check works
+    sys.exit(0 if main() else 1)
