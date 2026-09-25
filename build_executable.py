@@ -14,6 +14,15 @@ import subprocess
 import sys
 import time
 
+# CI runners and plain cmd.exe hand this script a cp1252 stdout, which can't
+# encode the check marks used below — printing one would abort the build with
+# UnicodeEncodeError. Force UTF-8, and fall back to replacing odd characters.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 def pause(message="Press Enter to exit..."):
     """Waits for the user, but doesn't crash when stdin isn't a terminal (CI, piped output)."""
     try:
