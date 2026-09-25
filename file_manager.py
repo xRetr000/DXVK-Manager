@@ -25,11 +25,14 @@ def check_long_path_support():
         long_paths = winreg.QueryValueEx(key, "LongPathsEnabled")[0]
         winreg.CloseKey(key)
         return long_paths == 1
-    except (FileNotFoundError, OSError, ValueError):
+    except (ImportError, FileNotFoundError, OSError, ValueError):
+        # ImportError: winreg doesn't exist off Windows (keeps imports working there)
         return False
 
 def _clear_readonly(path):
     """Clear the FILE_ATTRIBUTE_READONLY flag on a Windows file using the Win32 API."""
+    if not hasattr(ctypes, "windll"):
+        return  # Not Windows — nothing to clear
     FILE_ATTRIBUTE_READONLY = 0x1
     attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
     if attrs != -1 and (attrs & FILE_ATTRIBUTE_READONLY):

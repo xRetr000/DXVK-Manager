@@ -8,8 +8,11 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # DXVK Manager is a Windows-only tool: it uses winreg, ctypes.windll and
+    # Windows path semantics, so the tests must run on Windows to be meaningful.
+    runs-on: windows-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
 
@@ -20,11 +23,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y libgl1 libglib2.0-0
 
       - name: Install Python dependencies
         run: |
