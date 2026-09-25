@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dxvk-manager"
-version = "1.1.0"
+version = "0.7.0"
 description = "A Windows tool for automatically installing and managing DXVK files for games"
 readme = "README.md"
 requires-python = ">=3.10"

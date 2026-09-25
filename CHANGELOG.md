@@ -2,7 +2,7 @@
 
 All notable changes to the DXVK Manager Tool will be documented in this file.
 
-## [1.1.0] - 2026-09-25
+## [0.7.0] - 2026-09-25
 
 ### Added
 - **Direct3D 12 support via vkd3d-proton.** DXVK doesn't cover D3D12, so D3D12
@@ -49,7 +49,7 @@ All notable changes to the DXVK Manager Tool will be documented in this file.
   headers instead of nested cards.
 - Minimum Python version is now 3.10 (PyQt6 requires 3.8+; 3.10–3.12 are tested).
 
-## [1.0.0] - 2024-01-15
+## [0.1.0] - 2025-07-12
 
 ### Added
 - Initial release of DXVK Manager Tool
