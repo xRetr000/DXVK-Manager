@@ -25,6 +25,10 @@
 Grab `DXVK_Manager.exe` from [Releases](https://github.com/xRetr000/DXVK-Manager/releases) and double-click it.
 No Python, no dependencies, no setup.
 
+> **SmartScreen / antivirus warning?** The executable isn't code-signed (certificates cost money),
+> and single-file PyInstaller builds are a common false-positive. If Windows blocks it, click
+> **More info → Run anyway**. You can always build it yourself from source — see below.
+
 ---
 
 ## Features
@@ -48,7 +52,7 @@ No Python, no dependencies, no setup.
 3. Downloads your chosen release (DXVK official or GPLAsync, or vkd3d-proton; latest or a specific version)
 4. Backs up your existing DLLs and installs DXVK
 
-To uninstall, select the same folder and hit **Uninstall DXVK** — it restores your original files from backup.
+To uninstall, select the same folder and hit **Restore Original DLLs** — it puts your original files back from the backup.
 
 ---
 
@@ -71,10 +75,11 @@ BUILD.bat
 
 | Problem | Fix |
 |---|---|
-| Game won't start after install | Click **Uninstall DXVK** to restore the original files |
+| Game won't start after install | Click **Restore Original DLLs** to put the original files back |
 | Download fails | Check your internet connection, or try running as administrator |
 | Wrong DirectX version detected | Use the override dropdown to set it manually |
 | Wrong `.exe` picked | Use the executable picker dialog to select the correct one |
+| Game's `.exe` is in a subfolder (`bin\`, `win64\`) | Select the folder that contains the `.exe`, not the game's root — the DLLs must sit next to it |
 | Backup folder is empty | This is expected if the game had no original DirectX DLLs — DXVK's files are still tracked and removed cleanly on uninstall |
 
 ---

@@ -1,5 +1,9 @@
 #!/bin/bash
-# Build script for Linux - creates a standalone executable
+# Build script for Linux - creates a standalone executable.
+#
+# NOTE: DXVK Manager is a Windows-only tool (it uses winreg and ctypes.windll),
+# so a Linux build will not run. This script is kept only for development use.
+# On Linux, use Proton/Lutris/Steam instead — they manage DXVK for you.
 
 echo "============================================================"
 echo "DXVK Manager Tool - Linux Build Script"
@@ -54,11 +58,11 @@ python3 -m PyInstaller \
     --name DXVK_Manager \
     --hidden-import pefile \
     --hidden-import requests \
+    --hidden-import zstandard \
     --hidden-import PyQt6 \
     --hidden-import PyQt6.QtCore \
     --hidden-import PyQt6.QtGui \
     --hidden-import PyQt6.QtWidgets \
-    --hidden-import platform_utils \
     --hidden-import zipfile \
     --hidden-import tarfile \
     --hidden-import io \

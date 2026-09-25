@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  # Also allow building from the Actions tab without tagging, for test builds
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to create the release and upload the .exe
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Run tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          pip install pytest
+          pytest tests/ -q
+
+      - name: Build executable
+        run: python build_executable.py
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DXVK_Manager
+          path: dist/DXVK_Manager.exe
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/DXVK_Manager.exe
+          generate_release_notes: true
