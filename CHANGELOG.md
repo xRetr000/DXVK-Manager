@@ -2,6 +2,14 @@
 
 All notable changes to the DXVK Manager Tool will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Update notifications.** On launch the app checks GitHub in the background for a
+  newer release and, if there is one, shows a banner with a link to the release
+  page. It never downloads or installs anything itself, and stays silent when
+  offline or rate-limited. The window title now shows the running version.
+
 ## [0.7.0] - 2026-09-25
 
 ### Added

@@ -113,6 +113,8 @@ def build_executable():
         "--hidden-import", "file_manager",
         "--hidden-import", "logger",
         "--hidden-import", "github_downloader",
+        "--hidden-import", "update_checker",
+        "--hidden-import", "constants",
         # Standard library modules
         "--hidden-import", "zipfile",
         "--hidden-import", "io",

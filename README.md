@@ -40,6 +40,7 @@ No Python, no dependencies, no setup.
 - **Direct3D 12 support via vkd3d-proton** — for D3D12 games (which DXVK doesn't cover), switch the renderer to [vkd3d-proton](https://github.com/HansKristian-Work/vkd3d-proton) and it installs `d3d12.dll` / `d3d12core.dll` the same way
 - **Built-in dxvk.conf editor** — tune HUD display, async shader compilation, frame rate cap, VRAM budget, Tear-Free, shader cache, and log level from a GUI, no text file editing
 - **PCGamingWiki integration** — jump straight to a game's compatibility page with one click
+- **Update notifications** — tells you when a new version is out and links you to the release page; nothing is downloaded or installed without you
 - **Safe by design** — original DLLs are always backed up before anything is touched, and restored cleanly on uninstall
 - **Modern dark UI** — clean, card-based layout throughout
 

@@ -10,9 +10,11 @@ from PyQt6.QtWidgets import (
     QFileDialog, QMessageBox, QFrame, QScrollArea, QDialog,
     QTabWidget, QSpinBox, QListWidget, QSplitter
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QSettings
+from PyQt6.QtCore import Qt, QThread, QObject, pyqtSignal, QSize, QSettings
 from PyQt6.QtGui import QFont, QPalette, QColor, QIcon
-from constants import RENDERER_DXVK, RENDERER_VKD3D, RENDERER_NAMES
+import threading
+from constants import APP_VERSION, RENDERER_DXVK, RENDERER_VKD3D, RENDERER_NAMES
+from update_checker import check_for_update, RELEASES_PAGE
 
 class InstallationThread(QThread):
     """Thread for running DXVK installation without blocking UI."""
@@ -235,6 +237,11 @@ class DetectionThread(QThread):
         except Exception as e:
             self.log_signal.emit(f"Error accessing folder: {str(e)}")
             self.detected_signal.emit("Error", "Error")
+
+class UpdateCheckSignals(QObject):
+    """Carries the update-check result from its background thread to the UI thread."""
+    update_available = pyqtSignal(str, str)  # version tag, release page URL
+
 
 class ModernCard(QFrame):
     """A modern card widget with rounded corners and shadow effect."""
@@ -476,7 +483,7 @@ class DXVKManagerGUI:
         self.app.setWindowIcon(icon)
 
         self.window = QMainWindow()
-        self.window.setWindowTitle("DXVK Manager")
+        self.window.setWindowTitle(f"DXVK Manager v{APP_VERSION}")
         self.window.setWindowIcon(icon)
         self.window.setMinimumSize(900, 600)
         self.window.resize(1100, 720)
@@ -512,7 +519,37 @@ class DXVKManagerGUI:
         self.install_thread = None
         self.detect_thread = None
         self.current_folder = None
-    
+
+        self._start_update_check()
+
+    def _start_update_check(self):
+        """
+        Checks GitHub for a newer release in the background and shows a banner if
+        there is one. Uses a daemon thread rather than a QThread so a slow or hung
+        request can never delay or crash closing the app.
+        """
+        self._update_signals = UpdateCheckSignals()
+        self._update_signals.update_available.connect(self._show_update_banner)
+
+        def worker():
+            update = check_for_update(APP_VERSION)
+            if update:
+                self._update_signals.update_available.emit(update["version"], update["url"])
+
+        threading.Thread(target=worker, name="update-check", daemon=True).start()
+
+    def _show_update_banner(self, version, url):
+        """Reveal the update notice at the top of the left panel."""
+        self._update_url = url
+        self.update_label.setText(
+            f"<b>Update available: {version}</b> &nbsp;·&nbsp; you have v{APP_VERSION}"
+        )
+        self.update_banner.show()
+        self.log_message(f"A new version ({version}) is available: {url}")
+
+    def _open_update_page(self):
+        webbrowser.open(getattr(self, "_update_url", None) or RELEASES_PAGE)
+
     def _restore_window_state(self):
         """Restore window size/position and splitter split from the previous session."""
         geometry = self.settings.value("window/geometry")
@@ -614,6 +651,50 @@ class DXVKManagerGUI:
         title.setFont(title_font)
         title.setStyleSheet("color: #FFFFFF; margin-bottom: 4px;")
         outer_layout.addWidget(title)
+
+        # Update banner — hidden until the background check finds a newer release.
+        # Styles are scoped by objectName so they don't cascade to the child QLabel.
+        self.update_banner = QFrame()
+        self.update_banner.setObjectName("updateBanner")
+        self.update_banner.setStyleSheet("""
+            QFrame#updateBanner {
+                background-color: #10324A; border: 1px solid #1F6FA8; border-radius: 6px;
+            }
+        """)
+        banner_layout = QHBoxLayout(self.update_banner)
+        banner_layout.setContentsMargins(12, 6, 6, 6)
+        banner_layout.setSpacing(8)
+
+        self.update_label = QLabel()
+        self.update_label.setStyleSheet("color: #CFE8FF; font-size: 9pt;")
+        banner_layout.addWidget(self.update_label, 1)
+
+        update_btn = QPushButton("View on GitHub")
+        update_btn.setToolTip("Open the release page to download the new version")
+        update_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        update_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0078D4; color: white; border: none;
+                padding: 5px 12px; border-radius: 4px; font-weight: 600; font-size: 9pt;
+            }
+            QPushButton:hover { background-color: #106EBE; }
+        """)
+        update_btn.clicked.connect(self._open_update_page)
+        banner_layout.addWidget(update_btn)
+
+        dismiss_btn = QPushButton("✕")
+        dismiss_btn.setToolTip("Hide until next launch")
+        dismiss_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        dismiss_btn.setFixedWidth(28)
+        dismiss_btn.setStyleSheet("""
+            QPushButton { background: transparent; color: #8FB8DA; border: none; padding: 4px; }
+            QPushButton:hover { color: #FFFFFF; }
+        """)
+        dismiss_btn.clicked.connect(self.update_banner.hide)
+        banner_layout.addWidget(dismiss_btn)
+
+        self.update_banner.hide()
+        outer_layout.addWidget(self.update_banner)
 
         # Tab widget
         self.left_tabs = QTabWidget()

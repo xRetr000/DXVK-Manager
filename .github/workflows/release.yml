@@ -26,6 +26,22 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
+      # A release built with a stale APP_VERSION would tell every user who
+      # downloads it that an update is available — for the version they have.
+      - name: Check tag matches APP_VERSION
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: python
+        run: |
+          import os, sys
+          sys.path.insert(0, ".")
+          from constants import APP_VERSION
+          from update_checker import is_newer
+          tag = os.environ["GITHUB_REF_NAME"]
+          if is_newer(tag, APP_VERSION) or is_newer(APP_VERSION, tag):
+              sys.exit(f"Tag {tag} does not match APP_VERSION {APP_VERSION} in constants.py "
+                       f"- bump APP_VERSION and pyproject.toml, then re-tag.")
+          print(f"Tag {tag} matches APP_VERSION {APP_VERSION}")
+
       - name: Run tests
         env:
           QT_QPA_PLATFORM: offscreen

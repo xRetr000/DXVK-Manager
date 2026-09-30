@@ -2,6 +2,11 @@
 Shared constants for DXVK Manager.
 """
 
+# The running app's version, used by the update check and the window title.
+# Keep in sync with pyproject.toml (a test enforces this). Release tags are
+# "v" + this, e.g. v0.7 for 0.7.0.
+APP_VERSION = "0.7.0"
+
 # Maps DirectX version → list of DLLs to install/extract.
 # DXVK does not ship d3d10.dll — it uses d3d10core.dll for D3D10 support.
 # Direct3D 12 is handled by vkd3d-proton, not DXVK, and ships no dxgi.dll.
