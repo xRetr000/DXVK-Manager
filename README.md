@@ -9,7 +9,9 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.7+-blue.svg" alt="Python">
+  <a href="https://github.com/xRetr000/DXVK-Manager/releases"><img src="https://img.shields.io/github/downloads/xRetr000/DXVK-Manager/total?label=downloads&color=brightgreen" alt="Total downloads"></a>
+  <a href="https://github.com/xRetr000/DXVK-Manager/releases/latest"><img src="https://img.shields.io/github/downloads/xRetr000/DXVK-Manager/latest/total?label=latest%20release" alt="Latest release downloads"></a>
+  <img src="https://img.shields.io/badge/Python-3.10+-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/Platform-Windows-lightgrey.svg" alt="Platform">
   <img src="https://img.shields.io/badge/License-Apache%202.0-green.svg" alt="License">
 </p>
